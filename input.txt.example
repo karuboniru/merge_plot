@@ -1,0 +1,14 @@
+# empty lines, lines begining with space and lines begining with # are ignored
+# title of plots being generated
+Proton Momentum; Proton Momentum (GeV/ #it{c}); d#it{#sigma}/d#it{P} (cm^{2} GeV^{-1} #it{c})
+# uplimit for the histogram, in terms of GeV or GeV/c
+2
+# per-line input file
+# Legend Name (will be passed to TLegend directly)
+# ROOT file path, can be relative to current directory
+# Name of histogram in ROOT file
+# Scale to apply to histogram, per bin content, kept for proton decay kaon spectra
+# They are given with splits by "|", the scale factor is optional
+# [Legend]|[ROOT file path]|[histogram name]|<scale, default to 1.0>
+NuWro 21.09|/home/yan/neutrino/nuwro_data/honda_flux_20/plots/proton_momentum.root|ALL
+GIBUU|/media/storage/proton_momentum.root|All|1e-3
