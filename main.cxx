@@ -26,6 +26,7 @@ int main(int argc, char const *argv[])
     // std::vector<std::unique_ptr<TH1D>> histos{};
     using entry_t = std::pair<std::string, std::unique_ptr<TH1D>>;
     std::string output_prefix = argv[2];
+    double max{};
     std::vector<entry_t> entries{};
     {
         std::ifstream config_file{argv[1]};
@@ -101,6 +102,7 @@ int main(int argc, char const *argv[])
             }
             hist->Scale(scale);
             hist->GetXaxis()->SetRangeUser(0, uplimit);
+            max = std::max(max, hist->GetMaximum());
             entries.emplace_back(legend, std::move(hist));
             file.Close();
         }
@@ -118,6 +120,7 @@ int main(int argc, char const *argv[])
                 leg->AddEntry(hist.get(), legend_title.c_str(), "l");
                 auto opt = i == 0 ? "hist" : "hist same";
                 hist->SetTitle(plot_title.c_str());
+                hist->SetMaximum(max * 1.1);
                 hist->Draw(opt);
             }
             leg->Draw();
