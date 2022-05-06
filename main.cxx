@@ -22,8 +22,6 @@ int main(int argc, char const *argv[])
         return 1;
     }
     std::string plot_title{};
-    // std::vector<std::string> legends{}, plot_names{};
-    // std::vector<std::unique_ptr<TH1>> histos{};
     using entry_t = std::pair<std::string, std::unique_ptr<TH1>>;
     std::string output_prefix = argv[2];
     double max{};
@@ -117,6 +115,7 @@ int main(int argc, char const *argv[])
                                     kOrange, kViolet, kGray, kYellow, kBlack};
             auto canvas = getCanvas();
             auto leg = std::make_unique<TLegend>(.7, .7, .9, .9);
+            ResetStyle(leg);
             for (std::size_t i = 0; i < entries.size(); ++i)
             {
                 auto &[legend_title, hist] = entries[i];
@@ -131,8 +130,8 @@ int main(int argc, char const *argv[])
                 hist->Draw(opt);
             }
             leg->Draw();
-            canvas->SaveAs((output_prefix + ".pdf").c_str());
-            canvas->SaveAs((output_prefix + ".png").c_str());
+            // canvas->SaveAs((output_prefix + ".pdf").c_str());
+            // canvas->SaveAs((output_prefix + ".png").c_str());
             canvas->SaveAs((output_prefix + ".eps").c_str());
         }
     }

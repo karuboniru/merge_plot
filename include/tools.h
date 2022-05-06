@@ -215,3 +215,20 @@ std::unique_ptr<TCanvas> inline getCanvas(const char *name = "")
     c->cd();
     return c;
 }
+
+template <typename T>
+concept LegendPtr = std::is_base_of_v<TLegend, std::remove_cvref_t<decltype(*std::declval<T>())>>;
+
+template <LegendPtr T>
+void ResetStyle(T &&obj, Double_t mar=-999, const Double_t ff=0.8)
+{
+    using namespace style;
+    if (mar > 0)
+    {
+        obj->SetMargin(mar);
+    }
+    obj->SetFillStyle(-1);
+    obj->SetBorderSize(-1);
+    obj->SetTextFont(fgkTextFont);
+    obj->SetTextSize(fgkTextSize * ff);
+}
