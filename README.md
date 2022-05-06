@@ -9,9 +9,9 @@ cd build
 check if executable merge_plot is in build directory
 
 ## Running:
- - modify input.txt.example, put file paths in
+ - modify input.json.example, put file paths in
  - run:
 ```
-/path/to/build/merge_plots input.txt output_prefix
+/path/to/build/merge_plots input.json
 ```
- - check outputs from `output_prefix.png` and `output_prefix.pdf`
+ - check outputs

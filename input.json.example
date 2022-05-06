@@ -1,0 +1,46 @@
+{
+    "plot_title": "Proton Momentum; Proton Momentum (GeV/ #it{c}); d#it{#sigma}/d#it{P} (cm^{2} GeV^{ -1} #it{c})",
+    "max_x_value": 1.0,
+    "output_names": ["proton_momentum.eps", "proton_momentum.png", "proton_momentum.pdf"],
+    "hists": [
+        {
+            "legend": "NuWro 21.09",
+            "file_path": "/home/yan/neutrino/nuwro_data/honda_flux_20/plots/protonP.root",
+            "hist": "ALL",
+            "rebin": 2
+        },
+        {
+            "legend": "GiBUU 2021, patch 1",
+            "file_path": "/media/storage/plots/plot/proton_momentum.root",
+            "hist": "All",
+            "scale": 1.0,
+            "rebin": 4
+        },
+        {
+            "legend": "GENIE 3.0.6 hN",
+            "file_path": "/media/storage/plots/Atm_CC_C12_genie3.0.6hN_anahist.root",
+            "hist": "proton_momentum_cc_numu",
+            "scale": 1.0,
+            "rebin": 4
+        }
+    ],
+    "misc": [
+        {
+            "type": "VLine",
+            "x": 0.5,
+            "color": 880
+        },
+        {
+            "type": "TText",
+            "x": 0.35,
+            "y": 0.5,
+            "text": "lack of constrain"
+        }
+    ],
+    "legend_place": {
+        "x1": 0.50,
+        "y1": 0.65,
+        "x2": 0.85,
+        "y2": 0.9
+    }
+}
