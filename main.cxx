@@ -16,21 +16,22 @@
 #include <unordered_map>
 
 int main(int argc, char const *argv[]) {
-    gStyle->SetOptStat(0);
-    gSystem->ResetSignal(kSigBus);
-    gSystem->ResetSignal(kSigSegmentationViolation);
-    gSystem->ResetSignal(kSigIllegalInstruction);
-    TH1::AddDirectory(kFALSE);
-    if (argc != 2) {
-        std::cout << "Usage: merge_plot <config_file>" << std::endl;
-        return 1;
+    {
+        gStyle->SetOptStat(0);
+        gSystem->ResetSignal(kSigBus);
+        gSystem->ResetSignal(kSigSegmentationViolation);
+        gSystem->ResetSignal(kSigIllegalInstruction);
+        TH1::AddDirectory(kFALSE);
+        if (argc != 2) {
+            std::cout << "Usage: merge_plot <config_file>" << std::endl;
+            return 1;
+        }
     }
     using entry_t = std::pair<std::string, std::unique_ptr<TH1>>;
     double max{};
     std::vector<entry_t> entries{};
     std::vector<std::unique_ptr<TObject>> objects{};
     nlohmann::json config;
-    auto canvas = getCanvas();
 
     {
         std::ifstream config_file{argv[1]};
@@ -65,7 +66,7 @@ int main(int argc, char const *argv[]) {
             hist->GetXaxis()->SetRangeUser(0, uplimit);
             std::cout << "plotting " << plot_name << " from file " << file_path << " scale " << scale << " rebin with " << rebin_factor << std::endl;
             max = std::max(max, hist->GetMaximum());
-            ResetStyle(hist, canvas->GetPad(0));
+            ResetStyle(hist);
             hist->SetTitle(plot_title.c_str());
             entries.emplace_back(legend, std::move(hist));
         }
@@ -136,27 +137,30 @@ int main(int argc, char const *argv[]) {
         }
     }
 
-    constexpr std::array<int, 10> col{kRed, kGreen, kBlue, kMagenta, kCyan, kOrange, kViolet, kGray, kYellow, kBlack};
-    auto leg = config.contains("legend_place") ? std::make_unique<TLegend>(config["legend_place"]["x1"], config["legend_place"]["y1"],
-                                                                           config["legend_place"]["x2"], config["legend_place"]["y2"])
-                                               : std::make_unique<TLegend>(.7, .7, .9, .9);
-    ResetStyle(leg);
-    const auto draw_opt = config.value("draw_opt", "hist C");
-    for (std::size_t i = 0; i < entries.size(); ++i) {
-        auto &[legend_title, hist] = entries[i];
-        hist->SetLineColor(col[i]);
-        hist->SetLineWidth(1);
-        leg->AddEntry(hist.get(), legend_title.c_str(), "l");
-        const auto opt = i == 0 ? draw_opt : draw_opt + " same";
-        hist->SetMaximum(max * 1.1);
-        hist->SetMinimum(0);
-        hist->Draw(opt.c_str());
-    }
-    for (const auto &object : objects)
-        object->Draw("same");
-    leg->Draw();
-    for (const std::string &output_name : config["output_names"]) {
-        canvas->SaveAs(output_name.c_str());
+    {
+        constexpr std::array<int, 10> col{kRed, kGreen, kBlue, kMagenta, kCyan, kOrange, kViolet, kGray, kYellow, kBlack};
+        auto leg = config.contains("legend_place") ? std::make_unique<TLegend>(config["legend_place"]["x1"], config["legend_place"]["y1"],
+                                                                               config["legend_place"]["x2"], config["legend_place"]["y2"])
+                                                   : std::make_unique<TLegend>(.7, .7, .9, .9);
+        ResetStyle(leg);
+        auto canvas = getCanvas();
+        const auto draw_opt = config.value("draw_opt", "hist C");
+        for (std::size_t i = 0; i < entries.size(); ++i) {
+            auto &[legend_title, hist] = entries[i];
+            hist->SetLineColor(col[i]);
+            hist->SetLineWidth(1);
+            leg->AddEntry(hist.get(), legend_title.c_str(), "l");
+            const auto opt = i == 0 ? draw_opt : draw_opt + " same";
+            hist->SetMaximum(max * 1.1);
+            hist->SetMinimum(0);
+            hist->Draw(opt.c_str());
+        }
+        for (const auto &object : objects)
+            object->Draw("same");
+        leg->Draw();
+        for (const std::string &output_name : config["output_names"]) {
+            canvas->SaveAs(output_name.c_str());
+        }
     }
 
     return 0;

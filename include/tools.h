@@ -12,116 +12,91 @@
 #include <iostream>
 #include <string>
 
-template <typename T>
-concept HistLike = std::is_base_of_v<TH1, std::remove_cvref_t<T>> || std::is_base_of_v<TH2, std::remove_cvref_t<T>> ||
-    std::is_base_of_v<THStack, std::remove_cvref_t<T>>;
+template <typename PtrType, typename Base>
+concept IsBasePtr = std::is_base_of_v<std::remove_cvref_t<Base>, std::remove_cvref_t<decltype(*std::declval<PtrType>())>>;
 
-template <typename T>
-concept HistLikePtr = requires(T obj) {
-    { *obj } -> HistLike;
-};
+template <typename PtrType, typename... Bases>
+concept IsAnyBasePtr = (IsBasePtr<PtrType, Bases> || ...);
 
-template <typename T>
-concept StackPtr = requires(T obj) {
-    std::is_base_of_v<THStack, std::remove_cvref_t<decltype(*obj)>>;
-};
-
-template <typename T>
-concept Hist2D = std::is_base_of_v<TH2, std::remove_cvref_t<T>>;
-
-template <typename T>
-concept Hist1D = std::is_base_of_v<TH1, std::remove_cvref_t<T>>;
-
-template <typename T>
-concept AxisLIke = std::is_base_of_v<TAxis, std::remove_cvref_t<T>> || std::is_base_of_v<TGaxis, std::remove_cvref_t<T>>;
-
-template <typename T>
-concept AxisLIkePtr = requires(T obj) {
-    { *obj } -> AxisLIke;
-};
-
-template <typename T>
-concept CanvasPtr = requires(T obj) {
-    std::is_base_of_v<TCanvas, std::remove_cvref_t<decltype(*obj)>>;
-};
+template <typename PtrType, typename... Bases>
+concept IsAllBasePtr = (IsBasePtr<PtrType, Bases> && ...);
 
 namespace style {
-    static constexpr Double_t fgkTextSize = 0.05;
-    static constexpr Double_t fgkTitleSize = 0.05;
-    static constexpr Double_t fgkMarkerSize = 1;
-    static constexpr Double_t fgkLineWidth = 2;
-    static constexpr Int_t fgkTextFont = 42;
-    static constexpr Double_t fgkLabelOffset = 0.01;
-    static constexpr Double_t fgkXTitleOffset = 1.25; // 1.1;//1.25;
-    static constexpr Double_t fgkYTitleOffset = 1.1;  // 1.2;
-    static constexpr Double_t fgkTickLength = 0.02;
+    constexpr auto fgkTextSize = 0.05;
+    constexpr auto fgkTitleSize = 0.05;
+    constexpr auto fgkMarkerSize = 1;
+    constexpr auto fgkLineWidth = 2;
+    constexpr auto fgkTextFont = 42;
+    constexpr auto fgkLabelOffset = 0.01;
+    constexpr auto fgkXTitleOffset = 1.25; // 1.1;//1.25;
+    constexpr auto fgkYTitleOffset = 1.1;  // 1.2;
+    constexpr auto fgkTickLength = 0.02;
+
+    class global_style {
+    public:
+        global_style(bool lStat = false) {
+            using namespace style;
+            std::cout << "Setting Style" << std::endl;
+            gStyle->SetFrameBorderMode(0);
+            gStyle->SetFrameFillColor(0);
+            gStyle->SetCanvasBorderMode(0);
+            gStyle->SetPadBorderMode(0);
+            gStyle->SetPadColor(10);
+            gStyle->SetCanvasColor(10);
+            gStyle->SetTitleFillColor(10);
+            gStyle->SetTitleBorderSize(-1);
+            gStyle->SetStatColor(10);
+            gStyle->SetStatBorderSize(-1);
+            // gStyle->SetLegendBorderSize(-1);
+            //
+            gStyle->SetDrawBorder(0);
+            gStyle->SetTextFont(fgkTextFont);
+            gStyle->SetStatFont(fgkTextFont);
+            gStyle->SetStatFontSize(fgkTextSize);
+            gStyle->SetStatX(0.97);
+            gStyle->SetStatY(0.98);
+            gStyle->SetStatH(0.03);
+            gStyle->SetStatW(0.3);
+            gStyle->SetTickLength(fgkTickLength, "xy");
+            gStyle->SetEndErrorSize(3);
+            gStyle->SetLabelSize(fgkTextSize, "xyz");
+            gStyle->SetLabelFont(fgkTextFont, "xyz");
+            gStyle->SetLabelOffset(fgkLabelOffset, "xyz");
+            gStyle->SetTitleFont(fgkTextFont, "xyz");
+            gStyle->SetTitleFont(fgkTextFont, "");
+            gStyle->SetTitleFontSize(fgkTitleSize);
+            gStyle->SetTitleOffset(fgkXTitleOffset, "x");
+            gStyle->SetTitleOffset(fgkYTitleOffset, "y");
+            gStyle->SetTitleOffset(1.0, "z");
+            gStyle->SetTitleSize(fgkTitleSize, "xyz");
+            gStyle->SetTitleSize(fgkTitleSize, "");
+            gStyle->SetMarkerSize(fgkMarkerSize);
+            gStyle->SetPalette(1, 0);
+            TGaxis::SetMaxDigits(3);
+            gStyle->SetTitleBorderSize(-1);
+            if (lStat) {
+                gStyle->SetOptTitle(1);
+                gStyle->SetOptStat(1111);
+                gStyle->SetOptFit(1111);
+            } else {
+                gStyle->SetOptTitle(0);
+                gStyle->SetOptStat(0);
+                gStyle->SetOptFit(0);
+            }
+
+            TGaxis::SetMaxDigits(3);
+            gStyle->SetTitleBorderSize(-1);
+
+            gROOT->ForceStyle();
+        }
+    };
+    // automatically set the style, per program instance
+    inline global_style global_style_instance;
 } // namespace style
 
-class global_style {
-public:
-    global_style(bool lStat = false) {
-        using namespace style;
-        std::cout << "Setting Style" << std::endl;
-        gStyle->SetFrameBorderMode(0);
-        gStyle->SetFrameFillColor(0);
-        gStyle->SetCanvasBorderMode(0);
-        gStyle->SetPadBorderMode(0);
-        gStyle->SetPadColor(10);
-        gStyle->SetCanvasColor(10);
-        gStyle->SetTitleFillColor(10);
-        gStyle->SetTitleBorderSize(-1);
-        gStyle->SetStatColor(10);
-        gStyle->SetStatBorderSize(-1);
-        // gStyle->SetLegendBorderSize(-1);
-        //
-        gStyle->SetDrawBorder(0);
-        gStyle->SetTextFont(fgkTextFont);
-        gStyle->SetStatFont(fgkTextFont);
-        gStyle->SetStatFontSize(fgkTextSize);
-        gStyle->SetStatX(0.97);
-        gStyle->SetStatY(0.98);
-        gStyle->SetStatH(0.03);
-        gStyle->SetStatW(0.3);
-        gStyle->SetTickLength(fgkTickLength, "xy");
-        gStyle->SetEndErrorSize(3);
-        gStyle->SetLabelSize(fgkTextSize, "xyz");
-        gStyle->SetLabelFont(fgkTextFont, "xyz");
-        gStyle->SetLabelOffset(fgkLabelOffset, "xyz");
-        gStyle->SetTitleFont(fgkTextFont, "xyz");
-        gStyle->SetTitleFont(fgkTextFont, "");
-        gStyle->SetTitleFontSize(fgkTitleSize);
-        gStyle->SetTitleOffset(fgkXTitleOffset, "x");
-        gStyle->SetTitleOffset(fgkYTitleOffset, "y");
-        gStyle->SetTitleOffset(1.0, "z");
-        gStyle->SetTitleSize(fgkTitleSize, "xyz");
-        gStyle->SetTitleSize(fgkTitleSize, "");
-        gStyle->SetMarkerSize(fgkMarkerSize);
-        gStyle->SetPalette(1, 0);
-        TGaxis::SetMaxDigits(3);
-        gStyle->SetTitleBorderSize(-1);
-        if (lStat) {
-            gStyle->SetOptTitle(1);
-            gStyle->SetOptStat(1111);
-            gStyle->SetOptFit(1111);
-        } else {
-            gStyle->SetOptTitle(0);
-            gStyle->SetOptStat(0);
-            gStyle->SetOptFit(0);
-        }
-
-        TGaxis::SetMaxDigits(3);
-        gStyle->SetTitleBorderSize(-1);
-
-        gROOT->ForceStyle();
-        gROOT->ForceStyle();
-    }
-};
-
-inline global_style global_style_instance;
-
-template <CanvasPtr T>
-void PadSetup(T &&currentPad, const Double_t currentLeft = 0.12, const Double_t currentTop = 0.09,
-              const Double_t currentRight = 0.13, const Double_t currentBottom = 0.14) {
+template <IsBasePtr<TCanvas> T>
+void PadSetup(T &&currentPad, const Double_t currentLeft = 0.12, const Double_t currentTop = 0.09, const Double_t currentRight = 0.13,
+              const Double_t currentBottom = 0.14) {
     currentPad->SetTicks(1, 1);
     currentPad->SetLeftMargin(currentLeft);
     currentPad->SetTopMargin(currentTop);
@@ -131,7 +106,10 @@ void PadSetup(T &&currentPad, const Double_t currentLeft = 0.12, const Double_t 
     currentPad->SetFillColor(0); // this is the desired one!!!
 }
 
-template <AxisLIkePtr T> void AxisStyle(T &&ax, Bool_t kcen) {
+template <IsAnyBasePtr<TAxis, TGaxis> T> void AxisStyle(T &&ax, Bool_t kcen) {
+    if (!ax) {
+        throw std::runtime_error("Axis is null, in AxisStyle<AxisLikePtr>");
+    }
     using namespace style;
     ax->SetTickLength(fgkTickLength);
 
@@ -146,16 +124,15 @@ template <AxisLIkePtr T> void AxisStyle(T &&ax, Bool_t kcen) {
     ax->CenterTitle(kcen);
 
     ax->SetNdivisions(505);
-    if (std::is_base_of_v<TGaxis, T>) {
+    if constexpr (IsBasePtr<T, TGaxis>) {
         ax->SetTitleOffset(fgkXTitleOffset);
     }
 }
 
-template <HistLikePtr T> void ResetStyle(T &&obj, TVirtualPad *cpad, Bool_t kcen = true) {
+template <IsBasePtr<TH1> T> void ResetStyle(T &&obj, TVirtualPad *cpad = nullptr, Bool_t kcen = true) {
     using namespace style;
     if (!obj) {
-        printf("style::ResetStyle obj null!\n");
-        exit(1);
+        throw std::runtime_error("Object is null in ResetStyle<HistLikePtr>");
     }
 
     AxisStyle(obj->GetXaxis(), kcen);
@@ -163,22 +140,20 @@ template <HistLikePtr T> void ResetStyle(T &&obj, TVirtualPad *cpad, Bool_t kcen
 
     obj->GetXaxis()->SetTitleOffset(fgkXTitleOffset);
     obj->GetYaxis()->SetTitleOffset(fgkYTitleOffset);
-    if constexpr (!StackPtr<T>) {
-        obj->SetMarkerSize(fgkMarkerSize);
-        if (cpad) {
-            TPaletteAxis *palette = (TPaletteAxis *)obj->GetListOfFunctions()->FindObject("palette");
-            if (!palette) {
-                printf("ResetStyle no palette!!\n");
-                obj->GetListOfFunctions()->Print();
-            } else {
-                palette->SetX1NDC(1 - cpad->GetRightMargin() + 0.005);
-                palette->SetX2NDC(1 - cpad->GetRightMargin() / 3 * 2);
-                palette->SetY1NDC(cpad->GetBottomMargin());
-                palette->SetY2NDC(1 - cpad->GetTopMargin());
-                palette->SetLabelFont(fgkTextFont);
-                palette->SetLabelSize(fgkTextSize);
-                palette->SetLabelOffset(fgkLabelOffset);
-            }
+    obj->SetMarkerSize(fgkMarkerSize);
+    if (cpad) {
+        TPaletteAxis *palette = (TPaletteAxis *)obj->GetListOfFunctions()->FindObject("palette");
+        if (!palette) {
+            printf("ResetStyle no palette!!\n");
+            obj->GetListOfFunctions()->Print();
+        } else {
+            palette->SetX1NDC(1 - cpad->GetRightMargin() + 0.005);
+            palette->SetX2NDC(1 - cpad->GetRightMargin() / 3 * 2);
+            palette->SetY1NDC(cpad->GetBottomMargin());
+            palette->SetY2NDC(1 - cpad->GetTopMargin());
+            palette->SetLabelFont(fgkTextFont);
+            palette->SetLabelSize(fgkTextSize);
+            palette->SetLabelOffset(fgkLabelOffset);
         }
     }
 }
@@ -191,10 +166,7 @@ std::unique_ptr<TCanvas> inline getCanvas(const char *name = "") {
     return c;
 }
 
-template <typename T>
-concept LegendPtr = std::is_base_of_v<TLegend, std::remove_cvref_t<decltype(*std::declval<T>())>>;
-
-template <LegendPtr T> void ResetStyle(T &&obj, Double_t mar = -999, const Double_t ff = 0.8) {
+template <IsBasePtr<TLegend> T> void ResetStyle(T &&obj, Double_t mar = -999, const Double_t ff = 0.8) {
     using namespace style;
     if (mar > 0) {
         obj->SetMargin(mar);
@@ -203,4 +175,35 @@ template <LegendPtr T> void ResetStyle(T &&obj, Double_t mar = -999, const Doubl
     obj->SetBorderSize(-1);
     obj->SetTextFont(fgkTextFont);
     obj->SetTextSize(fgkTextSize * ff);
+}
+
+template <IsAnyBasePtr<TAxis, TGaxis> T> void BinLogX(T &&axis) {
+    // void XGLUtils::BinLogX(TAxis *axis)
+    //
+    //  Method for the correct logarithmic binning of histograms
+    //  copied and modified from AliTPCcalibBase
+
+    const auto bins = axis->GetNbins();
+
+    const auto from = axis->GetXmin();
+    const auto to = axis->GetXmax();
+    if (from < 1e-12)
+        return;
+    auto new_bins = std::make_unique_for_overwrite<double[]>(bins + 1);
+
+    new_bins[0] = from;
+    const auto factor = std::pow(to / from, 1. / bins);
+
+    for (int i = 1; i <= bins; i++) {
+        new_bins[i] = factor * new_bins[i - 1];
+    }
+    axis->Set(bins, new_bins.get());
+}
+
+template <IsBasePtr<TH1> T> void UpdateLogX(T &&obj) {
+    TAxis *axis = obj->GetXaxis();
+    double xmin = axis->GetXmin();
+    double xmax = axis->GetXmax();
+    axis->SetLimits(std::pow(10, xmin), std::pow(10, xmax));
+    BinLogX(axis);
 }
