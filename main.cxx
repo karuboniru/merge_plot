@@ -62,7 +62,7 @@ int main(int argc, char const *argv[]) {
             }
             hist->Scale(scale / rebin_factor);
             if (rebin_factor != 1)
-                hist = std::unique_ptr<TH1>{dynamic_cast<TH1 *>(hist->Rebin(rebin_factor)->Clone())};
+                hist->Rebin(rebin_factor);
             hist->GetXaxis()->SetRangeUser(0, uplimit);
             std::cout << "plotting " << plot_name << " from file " << file_path << " scale " << scale << " rebin with " << rebin_factor << std::endl;
             max = std::max(max, hist->GetMaximum());
@@ -101,16 +101,17 @@ int main(int argc, char const *argv[]) {
                      auto marker = std::make_unique<TMarker>(config["x"], config["y"], config.value("marker", 20));
                      marker->SetMarkerColor(config.value("color", kBlack));
                      marker->SetMarkerSize(config.value("size", 1));
+                     marker->SetNDC(config.value("ndc", true));
                      return marker;
                  }},
                 {"TText",
                  [](const nlohmann::json &config) -> std::unique_ptr<TObject> {
                      auto text = std::make_unique<TText>(config["x"], config["y"], config["text"].get<std::string>().c_str());
                      text->SetTextSize(config.value("size", 0.05));
-                     text->SetNDC(true);
                      text->SetTextColor(config.value("color", kBlack));
                      text->SetTextFont(config.value("font", 42));
                      text->SetTextAlign(config.value("align", 22));
+                     text->SetNDC(config.value("ndc", true));
                      return text;
                  }},
                 {"TLatex",
@@ -120,6 +121,7 @@ int main(int argc, char const *argv[]) {
                      latex->SetTextColor(config.value("color", kBlack));
                      latex->SetTextFont(config.value("font", 42));
                      latex->SetTextAlign(config.value("align", 22));
+                     latex->SetNDC(config.value("ndc", true));
                      return latex;
                  }},
                 {"TArrow", [](const nlohmann::json &config) -> std::unique_ptr<TObject> {
@@ -128,6 +130,7 @@ int main(int argc, char const *argv[]) {
                      arrow->SetLineColor(config.value("color", kBlack));
                      arrow->SetLineWidth(config.value("width", 1));
                      arrow->SetLineStyle(config.value("style", arrow->GetLineStyle()));
+                     arrow->SetNDC(config.value("ndc", true));
                      return arrow;
                  }}};
 
@@ -138,7 +141,7 @@ int main(int argc, char const *argv[]) {
     }
 
     {
-        constexpr std::array<int, 10> col{kRed, kGreen, kBlue, kMagenta, kCyan, kOrange, kViolet, kGray, kYellow, kBlack};
+        constexpr std::array<int, 10> col{kRed, kBlack, kBlue, kViolet, kYellow, kOrange, kGreen, kGray, kYellow, kBlack};
         auto leg = config.contains("legend_place") ? std::make_unique<TLegend>(config["legend_place"]["x1"], config["legend_place"]["y1"],
                                                                                config["legend_place"]["x2"], config["legend_place"]["y2"])
                                                    : std::make_unique<TLegend>(.7, .7, .9, .9);
@@ -148,7 +151,7 @@ int main(int argc, char const *argv[]) {
         for (std::size_t i = 0; i < entries.size(); ++i) {
             auto &[legend_title, hist] = entries[i];
             hist->SetLineColor(col[i]);
-            hist->SetLineWidth(1);
+            hist->SetLineWidth(2);
             leg->AddEntry(hist.get(), legend_title.c_str(), "l");
             const auto opt = i == 0 ? draw_opt : draw_opt + " same";
             hist->SetMaximum(max * 1.1);

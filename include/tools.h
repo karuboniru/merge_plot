@@ -159,7 +159,7 @@ template <IsBasePtr<TH1> T> void ResetStyle(T &&obj, TVirtualPad *cpad = nullptr
 }
 
 std::unique_ptr<TCanvas> inline getCanvas(const char *name = "") {
-    const double factor = 1;
+    constexpr size_t factor = 1;
     auto c = std::make_unique<TCanvas>(name, name, 800 * factor, 600 * factor);
     PadSetup(c);
     c->cd();
