@@ -4,6 +4,7 @@
 #include <TH1.h>
 #include <TLegend.h>
 #include <TMarker.h>
+#include <THStack.h>
 #include <TStyle.h>
 #include <TSystem.h>
 #include <TText.h>
@@ -11,7 +12,6 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <math.h>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -30,7 +30,7 @@ int main(int argc, char const *argv[]) {
     }
   }
   using entry_t = std::pair<std::string, std::unique_ptr<TH1>>;
-
+  double max{};
   std::vector<entry_t> entries{};
   std::vector<std::unique_ptr<TObject>> objects{};
   nlohmann::json config;
@@ -45,9 +45,6 @@ int main(int argc, char const *argv[]) {
     }
     config_file >> config;
   }
-  double max_conf = config.value<double>("max", 0.);
-  double max{};
-  // std::cout << "max: " << max << std::endl;
   {
     auto plot_title = config["plot_title"].get<std::string>();
     double uplimit{-INFINITY};
@@ -106,15 +103,6 @@ int main(int argc, char const *argv[]) {
       hist->SetTitle(plot_title.c_str());
       entries.emplace_back(legend, std::move(hist));
     }
-    if (max_conf != 0) {
-      // double oldmax = max;
-      double scale_conf = log10(max_conf);
-      double scale = log10(max);
-      int scale_diff = scale - scale_conf;
-      max = max_conf * pow(10, scale_diff);
-    } else {
-      max *= 1.1;
-    }
     if (config.contains("misc")) {
       const std::unordered_map<
           std::string,
@@ -133,8 +121,8 @@ int main(int argc, char const *argv[]) {
               {"VLine",
                [&max](
                    const nlohmann::json &config) -> std::unique_ptr<TObject> {
-                 auto line =
-                     std::make_unique<TLine>(config["x"], 0, config["x"], max);
+                 auto line = std::make_unique<TLine>(config["x"], 0,
+                                                     config["x"], max * 1.1);
                  line->SetLineColor(config.value("color", kBlack));
                  line->SetLineWidth(config.value("width", 1));
                  line->SetLineStyle(
@@ -204,6 +192,7 @@ int main(int argc, char const *argv[]) {
       }
     }
   }
+
   {
     auto leg =
         config.contains("legend_place")
@@ -220,6 +209,7 @@ int main(int argc, char const *argv[]) {
     if (config.value("logz", false))
       canvas->SetLogz();
     const auto draw_opt = config.value("draw_opt", "hist C");
+    auto stack = std::make_unique<THStack>("stack", config.value("plot_title", "").c_str());
     for (std::size_t i = 0; i < entries.size(); ++i) {
       auto &[legend_title, hist] = entries[i];
       // hist->SetLineColor(col[i]);
@@ -227,11 +217,15 @@ int main(int argc, char const *argv[]) {
       if (!dynamic_cast<TH2 *>(hist.get()))
         leg->AddEntry(hist.get(), legend_title.c_str(), "l");
       const auto opt = i == 0 ? draw_opt : draw_opt + " same";
-      hist->SetMaximum(max);
+      hist->SetMaximum(max * 1.1);
       if (!config.value("logy", false))
         hist->SetMinimum(0);
-      hist->Draw(opt.c_str());
+      hist->SetFillColor(hist->GetLineColor());
+      // hist->Draw(opt.c_str());
+      stack->Add(hist.get());
     }
+    stack->Draw(draw_opt.c_str());
+    
     for (const auto &object : objects)
       object->Draw("same");
     leg->Draw();
