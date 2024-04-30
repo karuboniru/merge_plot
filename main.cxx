@@ -17,6 +17,15 @@
 #include <string>
 #include <tools.h>
 #include <unordered_map>
+
+double median(TH1D *hist) {
+  double x, q;
+  q = 0.5;                 // 0.5 for "median"
+  hist->ComputeIntegral(); // just a precaution
+  hist->GetQuantiles(1, &x, &q);
+  return x;
+}
+
 int main(int argc, char const *argv[]) {
   {
     gStyle->SetOptStat(0);
@@ -33,6 +42,7 @@ int main(int argc, char const *argv[]) {
 
   std::vector<entry_t> entries{};
   std::vector<std::unique_ptr<TObject>> objects{};
+  std::vector<std::string> append_opt{}, leg_opt{};
   nlohmann::json config;
   constexpr std::array<int, 10> col{kRed,   kBlue, kViolet, kYellow, kOrange,
                                     kGreen, kGray, kTeal,   kPink};
@@ -47,6 +57,12 @@ int main(int argc, char const *argv[]) {
   }
   double max_conf = config.value<double>("max", 0.);
   double max{};
+  bool ymin_set = config.contains("min_y_value");
+  double min_y_value = ymin_set ? config["min_y_value"].get<double>() : 0;
+  max = config.value<double>("max_y_value", 0.);
+  bool last_bin_as_overflow = config.value("last_bin_as_overflow", false);
+  bool add_median = config.value("add_median", false);
+  // double first_to_d
   // std::cout << "max: " << max << std::endl;
   {
     auto plot_title = config["plot_title"].get<std::string>();
@@ -74,13 +90,19 @@ int main(int argc, char const *argv[]) {
                   << " from file " << file_path << std::endl;
         return 1;
       }
+      hist->Scale(scale / rebin_factor);
+      if (rebin_factor != 1)
+        hist->Rebin(rebin_factor);
+      if (entry.value("shape", false)){
+        hist->Scale(1. / hist->Integral());
+      }
+      if (entry.value("cdf", false)){
+        hist.reset(hist->GetCumulative());
+      }
       if (config.contains("max_x_value"))
         uplimit = std::max(uplimit, config["max_x_value"].get<double>());
       else
         uplimit = std::max(uplimit, hist->GetXaxis()->GetXmax());
-      hist->Scale(scale / rebin_factor);
-      if (rebin_factor != 1)
-        hist->Rebin(rebin_factor);
       auto hist_2dptr = dynamic_cast<TH2 *>(hist.get());
       if (hist_2dptr) { // if a 2d plot
         hist_2dptr->SetAxisRange(config["rangex"][0], config["rangex"][1], "X");
@@ -89,22 +111,42 @@ int main(int argc, char const *argv[]) {
           hist = normalize_slice(hist_2dptr, entry["normalize"].get<int>());
         }
       } else {
-        hist->GetXaxis()->SetRangeUser(hist->GetBinLowEdge(1), uplimit);
+        if (last_bin_as_overflow) {
+          std::cout << "last bin as overflow" << std::endl
+                    << "before \t" << hist->GetBinContent(hist->GetNbinsX())
+                    << std::endl;
+          hist->SetBinContent(hist->GetNbinsX(),
+                              hist->GetBinContent(hist->GetNbinsX()) +
+                                  hist->GetBinContent(hist->GetNbinsX() + 1));
+          std::cout << "after \t" << hist->GetBinContent(hist->GetNbinsX());
+          hist->SetBinContent(hist->GetNbinsX() + 1, 0);
+        } else {
+          hist->GetXaxis()->SetRangeUser(hist->GetBinLowEdge(1), uplimit);
+        }
+        if (config.contains("min_x_value") && entries.empty()) {
+          hist->GetXaxis()->SetRangeUser(config["min_x_value"].get<double>(),
+                                         uplimit);
+        }
       }
       std::cout << "plotting " << plot_name << " from file " << file_path
                 << " scale " << scale << " rebin with " << rebin_factor
                 << std::endl;
-      max = std::max(max, hist->GetMaximum());
+      if (!config.contains("max_y_value"))
+        max = std::max(max, hist->GetMaximum());
       ResetStyle(hist);
       hist->SetLineStyle(entry.value("line_style", kSolid));
       hist->SetLineWidth(entry.value("line_width", 2));
+      hist->SetMarkerStyle(entry.value("marker_style", hist->GetMarkerStyle()));
       auto color = entry.value("line_color", -1);
       if (color != -1)
         hist->SetLineColor(color);
       else
         hist->SetLineColor(col[i++]);
+      hist->SetMarkerColor(hist->GetLineColor());
       hist->SetTitle(plot_title.c_str());
       entries.emplace_back(legend, std::move(hist));
+      append_opt.push_back(entry.value("append_opt", ""));
+      leg_opt.push_back(entry.value("leg_opt", "lpf"));
     }
     if (max_conf != 0) {
       // double oldmax = max;
@@ -222,19 +264,36 @@ int main(int argc, char const *argv[]) {
     const auto draw_opt = config.value("draw_opt", "hist C");
     for (std::size_t i = 0; i < entries.size(); ++i) {
       auto &[legend_title, hist] = entries[i];
+      if (add_median) {
+        auto median_value = median(dynamic_cast<TH1D *>(hist.get()));
+        auto median_line = std::make_unique<TLine>(
+            median_value, 0, median_value, max);
+        median_line->SetLineColor(hist->GetLineColor());
+        median_line->SetLineStyle(2);
+        objects.emplace_back(std::move(median_line));
+        // legend_title += " median: " + std::to_string(median_value);
+        std::stringstream ss{};
+        ss << "(" << "m = " << std::fixed << std::setprecision(2) << median_value << ")";
+        legend_title += ss.str();
+      }
       // hist->SetLineColor(col[i]);
       // hist->SetLineWidth(2);
       if (!dynamic_cast<TH2 *>(hist.get()))
-        leg->AddEntry(hist.get(), legend_title.c_str(), "l");
+        leg->AddEntry(hist.get(), legend_title.c_str(), leg_opt[i].c_str());
       const auto opt = i == 0 ? draw_opt : draw_opt + " same";
+      std::string allopt = opt + append_opt[i];
       hist->SetMaximum(max);
-      if (!config.value("logy", false))
-        hist->SetMinimum(0);
-      hist->Draw(opt.c_str());
+      if (ymin_set) {
+        hist->SetMinimum(min_y_value);
+      }
+      // if (!config.value("logy", false))
+      //   hist->SetMinimum(0);
+      // hist->SetMa
+      hist->Draw(allopt.c_str());
     }
     for (const auto &object : objects)
       object->Draw("same");
-    leg->Draw();
+    leg->Draw(config.value("legend_draw_opt", "").c_str());
     for (const std::string &output_name : config["output_names"]) {
       if (!std::filesystem::path(output_name).parent_path().empty())
         std::filesystem::create_directories(

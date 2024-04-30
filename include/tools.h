@@ -15,8 +15,8 @@
 
 template <typename PtrType, typename Base>
 concept IsBasePtr =
-    std::is_base_of_v<std::remove_cvref_t<Base>,
-                      std::remove_cvref_t<decltype(*std::declval<PtrType>())>>;
+    std::is_base_of_v<std::__remove_cvref_t<Base>,
+                      std::__remove_cvref_t<decltype(*std::declval<PtrType>())>>;
 
 template <typename PtrType, typename... Bases>
 concept IsAnyBasePtr = (IsBasePtr<PtrType, Bases> || ...);
@@ -34,6 +34,16 @@ constexpr auto fgkLabelOffset = 0.01;
 constexpr auto fgkXTitleOffset = 1.25; // 1.1;//1.25;
 constexpr auto fgkYTitleOffset = 1.1;  // 1.2;
 constexpr auto fgkTickLength = 0.02;
+
+// constexpr auto fgkTextSize = 0.07;
+// constexpr auto fgkTitleSize = 0.07;
+// constexpr auto fgkMarkerSize = 1;
+// constexpr auto fgkLineWidth = 2;
+// constexpr auto fgkTextFont = 42;
+// constexpr auto fgkLabelOffset = 0.01;
+// constexpr auto fgkXTitleOffset = 1.1; // 1.1;//1.25;
+// constexpr auto fgkYTitleOffset = 0.75;  // 1.2;
+// constexpr auto fgkTickLength = 0.02;
 
 class global_style {
 public:
@@ -99,9 +109,9 @@ inline global_style global_style_instance;
 
 template <IsBasePtr<TCanvas> T>
 void PadSetup(T &&currentPad, const Double_t currentLeft = 0.12,
-              const Double_t currentTop = 0.09,
-              const Double_t currentRight = 0.13,
-              const Double_t currentBottom = 0.14) {
+              const Double_t currentTop = 0.08,
+              const Double_t currentRight = 0.037,
+              const Double_t currentBottom = 0.17) {
   currentPad->SetTicks(1, 1);
   currentPad->SetLeftMargin(currentLeft);
   currentPad->SetTopMargin(currentTop);
@@ -165,9 +175,10 @@ void ResetStyle(T &&obj, TVirtualPad *cpad = nullptr, Bool_t kcen = true) {
   }
 }
 
-std::unique_ptr<TCanvas> inline getCanvas(const char *name = "") {
+std::unique_ptr<TCanvas> inline getCanvas(const char *name = "", int ww = 600,
+                                         int wh = 400) {
   constexpr size_t factor = 1;
-  auto c = std::make_unique<TCanvas>(name, name, 800 * factor, 600 * factor);
+  auto c = std::make_unique<TCanvas>(name, name, ww * factor, wh * factor);
   PadSetup(c);
   c->cd();
   return c;
@@ -197,7 +208,7 @@ template <IsAnyBasePtr<TAxis, TGaxis> T> void BinLogX(T &&axis) {
   const auto to = axis->GetXmax();
   if (from < 1e-12)
     return;
-  auto new_bins = std::make_unique_for_overwrite<double[]>(bins + 1);
+  auto new_bins = std::make_unique<double[]>(bins + 1);
 
   new_bins[0] = from;
   const auto factor = std::pow(to / from, 1. / bins);
@@ -218,7 +229,7 @@ template <IsBasePtr<TH1> T> void UpdateLogX(T &&obj) {
 
 template <IsBasePtr<TH2> T>
 auto normalize_slice(T &&hist, bool on_axis_x = true) {
-  using HistType = std::remove_cvref_t<decltype(*std::declval<T>())>;
+  using HistType = std::__remove_cvref_t<decltype(*std::declval<T>())>;
   using std::string_literals::operator""s;
   auto hist_name_new = hist->GetName() + (on_axis_x ? "_norm_x"s : "_norm_y"s);
   auto hist_norm =
