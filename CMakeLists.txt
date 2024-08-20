@@ -3,7 +3,7 @@ project(merge_plot)
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 find_package(ROOT REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 include("${ROOT_USE_FILE}")
@@ -46,3 +46,15 @@ install(TARGETS graph DESTINATION bin)
 add_executable(merge_list merge_list.cxx)
 target_link_libraries(merge_list nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage)
 install(TARGETS merge_list DESTINATION bin)
+
+add_executable(root_divide root_divide.cxx)
+target_link_libraries(root_divide nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage)
+install(TARGETS root_divide DESTINATION bin)
+
+add_executable(plot_spline plot_spline.cxx)
+target_link_libraries(plot_spline nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage)
+install(TARGETS plot_spline DESTINATION bin)
+
+add_executable(plot_spline_all plot_spline_all.cxx)
+target_link_libraries(plot_spline_all nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage)
+install(TARGETS plot_spline_all DESTINATION bin)

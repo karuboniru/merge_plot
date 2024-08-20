@@ -107,7 +107,7 @@ public:
 inline global_style global_style_instance;
 } // namespace style
 
-template <IsBasePtr<TCanvas> T>
+template <typename T>
 void PadSetup(T &&currentPad, const Double_t currentLeft = 0.12,
               const Double_t currentTop = 0.08,
               const Double_t currentRight = 0.037,
@@ -173,6 +173,37 @@ void ResetStyle(T &&obj, TVirtualPad *cpad = nullptr, Bool_t kcen = true) {
       palette->SetLabelOffset(fgkLabelOffset);
     }
   }
+}
+
+template <IsBasePtr<TF1> T>
+void ResetStyle(T &&obj, TVirtualPad *cpad = nullptr, Bool_t kcen = true) {
+  using namespace style;
+  if (!obj) {
+    throw std::runtime_error("Object is null in ResetStyle<HistLikePtr>");
+  }
+
+  AxisStyle(obj->GetXaxis(), kcen);
+  AxisStyle(obj->GetYaxis(), kcen);
+
+  obj->GetXaxis()->SetTitleOffset(fgkXTitleOffset);
+  obj->GetYaxis()->SetTitleOffset(fgkYTitleOffset);
+  // obj->SetMarkerSize(fgkMarkerSize);
+  // if (cpad) {
+  //   TPaletteAxis *palette =
+  //       (TPaletteAxis *)obj->GetListOfFunctions()->FindObject("palette");
+  //   if (!palette) {
+  //     printf("ResetStyle no palette!!\n");
+  //     obj->GetListOfFunctions()->Print();
+  //   } else {
+  //     palette->SetX1NDC(1 - cpad->GetRightMargin() + 0.005);
+  //     palette->SetX2NDC(1 - cpad->GetRightMargin() / 3 * 2);
+  //     palette->SetY1NDC(cpad->GetBottomMargin());
+  //     palette->SetY2NDC(1 - cpad->GetTopMargin());
+  //     palette->SetLabelFont(fgkTextFont);
+  //     palette->SetLabelSize(fgkTextSize);
+  //     palette->SetLabelOffset(fgkLabelOffset);
+  //   }
+  // }
 }
 
 std::unique_ptr<TCanvas> inline getCanvas(const char *name = "", int ww = 600,
