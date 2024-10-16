@@ -6,11 +6,13 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_CXX_STANDARD 23)
 find_package(ROOT REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
-include("${ROOT_USE_FILE}")
+# include("${ROOT_USE_FILE}")
 include_directories(
     ${ROOT_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+add_link_options(-Wl,--as-needed)
 
 # add_compile_options(-fconcepts)
 
@@ -52,9 +54,13 @@ target_link_libraries(root_divide nlohmann_json::nlohmann_json ROOT::Tree ROOT::
 install(TARGETS root_divide DESTINATION bin)
 
 add_executable(plot_spline plot_spline.cxx)
-target_link_libraries(plot_spline nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage)
+target_link_libraries(plot_spline nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage boost_program_options)
 install(TARGETS plot_spline DESTINATION bin)
 
-add_executable(plot_spline_all plot_spline_all.cxx)
-target_link_libraries(plot_spline_all nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage)
-install(TARGETS plot_spline_all DESTINATION bin)
+add_executable(plot_spline_stack plot_spline_stack.cxx)
+target_link_libraries(plot_spline_stack nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage boost_program_options)
+install(TARGETS plot_spline_stack DESTINATION bin)
+
+add_executable(plot_spline_H plot_spline_H.cxx)
+target_link_libraries(plot_spline_H nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage boost_program_options)
+install(TARGETS plot_spline_H DESTINATION bin)

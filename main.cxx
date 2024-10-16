@@ -55,7 +55,7 @@ int main(int argc, char const *argv[]) {
     }
     config_file >> config;
   }
-  double max_conf = config.value<double>("max", 0.);
+  auto max_conf = config.value<double>("max", 0.);
   double max{};
   bool ymin_set = config.contains("min_y_value");
   double min_y_value = ymin_set ? config["min_y_value"].get<double>() : 0;
@@ -93,10 +93,10 @@ int main(int argc, char const *argv[]) {
       hist->Scale(scale / rebin_factor);
       if (rebin_factor != 1)
         hist->Rebin(rebin_factor);
-      if (entry.value("shape", false)){
+      if (entry.value("shape", false)) {
         hist->Scale(1. / hist->Integral());
       }
-      if (entry.value("cdf", false)){
+      if (entry.value("cdf", false)) {
         hist.reset(hist->GetCumulative());
       }
       if (config.contains("max_x_value"))
@@ -256,7 +256,9 @@ int main(int argc, char const *argv[]) {
             : std::make_unique<TLegend>(.7, .7, .9, .9);
     ResetStyle(leg);
     leg->SetNColumns(config.value("legend_columns", 1));
-    auto canvas = getCanvas();
+    auto cx = config.value("canvas_x", 600);
+    auto cy = config.value("canvas_y", 400);
+    auto canvas = getCanvas("", cx, cy);
     if (config.value("logy", false))
       canvas->SetLogy();
     if (config.value("logz", false))
@@ -266,14 +268,16 @@ int main(int argc, char const *argv[]) {
       auto &[legend_title, hist] = entries[i];
       if (add_median) {
         auto median_value = median(dynamic_cast<TH1D *>(hist.get()));
-        auto median_line = std::make_unique<TLine>(
-            median_value, 0, median_value, max);
+        auto median_line =
+            std::make_unique<TLine>(median_value, 0, median_value, max);
         median_line->SetLineColor(hist->GetLineColor());
         median_line->SetLineStyle(2);
         objects.emplace_back(std::move(median_line));
         // legend_title += " median: " + std::to_string(median_value);
         std::stringstream ss{};
-        ss << "(" << "m = " << std::fixed << std::setprecision(2) << median_value << ")";
+        ss << "("
+           << "m = " << std::fixed << std::setprecision(2) << median_value
+           << ")";
         legend_title += ss.str();
       }
       // hist->SetLineColor(col[i]);
