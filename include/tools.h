@@ -14,9 +14,9 @@
 #include <string>
 
 template <typename PtrType, typename Base>
-concept IsBasePtr =
-    std::is_base_of_v<std::__remove_cvref_t<Base>,
-                      std::__remove_cvref_t<decltype(*std::declval<PtrType>())>>;
+concept IsBasePtr = std::is_base_of_v<
+    std::__remove_cvref_t<Base>,
+    std::__remove_cvref_t<decltype(*std::declval<PtrType>())>>;
 
 template <typename PtrType, typename... Bases>
 concept IsAnyBasePtr = (IsBasePtr<PtrType, Bases> || ...);
@@ -144,7 +144,7 @@ template <IsAnyBasePtr<TAxis, TGaxis> T> void AxisStyle(T &&ax, Bool_t kcen) {
   }
 }
 
-template <IsBasePtr<TH1> T>
+template <IsAnyBasePtr<TH1, TGraph> T>
 void ResetStyle(T &&obj, TVirtualPad *cpad = nullptr, Bool_t kcen = true) {
   using namespace style;
   if (!obj) {
@@ -207,7 +207,7 @@ void ResetStyle(T &&obj, TVirtualPad *cpad = nullptr, Bool_t kcen = true) {
 }
 
 std::unique_ptr<TCanvas> inline getCanvas(const char *name = "", int ww = 600,
-                                         int wh = 400) {
+                                          int wh = 400) {
   constexpr size_t factor = 1;
   auto c = std::make_unique<TCanvas>(name, name, ww * factor, wh * factor);
   PadSetup(c);

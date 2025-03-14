@@ -36,9 +36,9 @@ int main(int argc, const char **argv) {
     }
 
     auto hist3 = dynamic_cast<TH1 *>(hist2->Clone());
-    hist3->Divide(hist1);
+    hist3->Add(hist1, -1);
     hist3->SetName(name);
-    hist3->SetTitle((std::string(hist3->GetTitle()) + " (divided)").c_str());
+    hist3->SetTitle((std::string(hist3->GetTitle()) + " (diff)").c_str());
     output->Add(hist3);
   }
   output->Write();

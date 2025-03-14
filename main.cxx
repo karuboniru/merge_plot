@@ -1,6 +1,7 @@
 #include <TArrow.h>
 #include <TCanvas.h>
 #include <TFile.h>
+#include <TGraphErrors.h>
 #include <TH1.h>
 #include <TLegend.h>
 #include <TMarker.h>
@@ -8,14 +9,18 @@
 #include <TSystem.h>
 #include <TText.h>
 #include <algorithm>
+#include <cstdio>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <math.h>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <print>
+#include <ranges>
 #include <string>
 #include <tools.h>
+#include <type_traits>
 #include <unordered_map>
 
 double median(TH1D *hist) {
@@ -24,6 +29,40 @@ double median(TH1D *hist) {
   hist->ComputeIntegral(); // just a precaution
   hist->GetQuantiles(1, &x, &q);
   return x;
+}
+
+template <class... Ts> struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
+template <typename Type, typename... Types, typename T, typename F>
+auto my_visit(T *ptr, F func)
+  requires((std::is_base_of_v<T, Type>))
+{
+  if (auto *casted = dynamic_cast<Type *>(ptr)) {
+    return func(casted);
+  }
+  if constexpr (sizeof...(Types) > 0) {
+    return my_visit<Types...>(ptr, func);
+  }
+  __builtin_unreachable();
+}
+
+void overE(TH1 *hist) {
+  for (int i = 1; i <= hist->GetNbinsX(); ++i) {
+    double content = hist->GetBinContent(i);
+    double bin_center = hist->GetBinCenter(i);
+    hist->SetBinContent(i, content / bin_center);
+  }
+}
+
+void overE(TGraph *graph) {
+  for (int i = 0; i < graph->GetN(); ++i) {
+    double x, y;
+    graph->GetPoint(i, x, y);
+    graph->SetPoint(i, x, y / x);
+  }
 }
 
 int main(int argc, char const *argv[]) {
@@ -38,11 +77,12 @@ int main(int argc, char const *argv[]) {
       return 1;
     }
   }
-  using entry_t = std::pair<std::string, std::unique_ptr<TH1>>;
+  using entry_t = std::tuple<std::string, std::unique_ptr<TNamed>, std::string,
+                             std::string>;
 
-  std::vector<entry_t> entries{};
+  std::deque<entry_t> entries{};
   std::vector<std::unique_ptr<TObject>> objects{};
-  std::vector<std::string> append_opt{}, leg_opt{};
+  // std::vector<std::string> append_opt{}, leg_opt{};
   nlohmann::json config;
   constexpr std::array<int, 10> col{kRed,   kBlue, kViolet, kYellow, kOrange,
                                     kGreen, kGray, kTeal,   kPink};
@@ -62,11 +102,11 @@ int main(int argc, char const *argv[]) {
   max = config.value<double>("max_y_value", 0.);
   bool last_bin_as_overflow = config.value("last_bin_as_overflow", false);
   bool add_median = config.value("add_median", false);
-  // double first_to_d
-  // std::cout << "max: " << max << std::endl;
+  bool overE_flag = config.value("overE", false);
+  std::vector<TNamed *> form_bar{};
+  double uplimit{-INFINITY};
   {
     auto plot_title = config["plot_title"].get<std::string>();
-    double uplimit{-INFINITY};
 
     size_t i{};
     for (const auto &entry : config["hists"]) {
@@ -77,7 +117,7 @@ int main(int argc, char const *argv[]) {
       std::string file_path = entry["file_path"];
       std::string plot_name = entry["hist"];
       double scale = entry.value("scale", 1.);
-      size_t rebin_factor = entry.value<size_t>("rebin", 1);
+      auto rebin_factor = entry.value<size_t>("rebin", 1);
       TFile file{file_path.c_str(), "READ"};
       if (!file.IsOpen()) {
         std::cout << "Error: Could not open file " << file_path << std::endl;
@@ -89,6 +129,9 @@ int main(int argc, char const *argv[]) {
         std::cout << "Error: Could not get histogram " << plot_name
                   << " from file " << file_path << std::endl;
         return 1;
+      }
+      if (overE_flag) {
+        overE(hist.get());
       }
       hist->Scale(scale / rebin_factor);
       if (rebin_factor != 1)
@@ -144,10 +187,69 @@ int main(int argc, char const *argv[]) {
         hist->SetLineColor(col[i++]);
       hist->SetMarkerColor(hist->GetLineColor());
       hist->SetTitle(plot_title.c_str());
-      entries.emplace_back(legend, std::move(hist));
-      append_opt.push_back(entry.value("append_opt", ""));
-      leg_opt.push_back(entry.value("leg_opt", "lpf"));
+      if (entry.value("add2bar", false)) {
+        form_bar.emplace_back(hist.get());
+      }
+      entries.emplace_back(legend, std::move(hist),
+                           entry.value("append_opt", ""),
+                           entry.value("leg_opt", "lpf"));
     }
+
+    for (const auto &entry : config["graphs"]) {
+      if (entry.value("skip", false)) {
+        continue;
+      }
+      std::string legend = entry["legend"];
+      std::string file_path = entry["file_path"];
+      std::string plot_name = entry["graph"];
+      double scale = entry.value("scale", 1.);
+      TFile file{file_path.c_str(), "READ"};
+      if (!file.IsOpen()) {
+        std::cout << "Error: Could not open file " << file_path << '\n';
+        return 1;
+      }
+      std::unique_ptr<TGraph> graph{
+          dynamic_cast<TGraph *>(file.Get(plot_name.c_str()))};
+      if (!graph) {
+        std::cout << "Error: Could not get graph " << plot_name << " from file "
+                  << file_path << '\n';
+        return 1;
+      }
+      if (overE_flag) {
+        overE(graph.get());
+      }
+      if (config.contains("max_x_value"))
+        uplimit = std::max(uplimit, config["max_x_value"].get<double>());
+      else
+        uplimit = std::max(uplimit, graph->GetXaxis()->GetXmax());
+      if (!config.contains("max_y_value"))
+        max = std::max(max, graph->GetHistogram()->GetMaximum());
+      graph->GetXaxis()->SetRangeUser(graph->GetXaxis()->GetXmin(), uplimit);
+      graph->GetYaxis()->SetRangeUser(min_y_value, max);
+      if (config.contains("min_x_value") && entries.empty()) {
+        graph->GetXaxis()->SetRangeUser(config["min_x_value"].get<double>(),
+                                        uplimit);
+      }
+      graph->Scale(scale);
+      graph->SetLineStyle(entry.value("line_style", kSolid));
+      graph->SetLineWidth(entry.value("line_width", 2));
+      auto color = entry.value("line_color", -1);
+      if (color != -1)
+        graph->SetLineColor(color);
+      else
+        graph->SetLineColor(col[i++]);
+      graph->SetMarkerColor(graph->GetLineColor());
+      graph->SetTitle(plot_title.c_str());
+      if (entry.value("add2bar", false)) {
+        form_bar.emplace_back(graph.get());
+      }
+      entries.emplace_back(legend, std::move(graph),
+                           entry.value("append_opt", ""),
+                           entry.value("leg_opt", "lpf"));
+      std::cout << "plotting " << plot_name << " from file " << file_path
+                << " scale " << scale << '\n';
+    }
+
     if (max_conf != 0) {
       // double oldmax = max;
       double scale_conf = log10(max_conf);
@@ -246,6 +348,53 @@ int main(int argc, char const *argv[]) {
       }
     }
   }
+
+  {
+    if (form_bar.size() >= 2) {
+      auto npoints = my_visit<TGraph, TH1>(
+          form_bar[0], overloaded{[](TGraph *g) { return g->GetN(); },
+                                  [](TH1 *h) { return h->GetNbinsX(); }});
+      auto xmax_user = my_visit<TGraph, TH1>(
+          form_bar[0], [](auto *g) { return g->GetXaxis()->GetXmax(); });
+      auto xmin_user = my_visit<TGraph, TH1>(
+          form_bar[0], [](auto *g) { return g->GetXaxis()->GetXmin(); });
+      auto grerr = std::make_unique<TGraphErrors>(npoints);
+      for (size_t i = 0; i < npoints; ++i) {
+        auto x_value = my_visit<TGraph, TH1>(
+            form_bar[0],
+            overloaded{[i](TGraph *g) {
+                         double x, y;
+                         g->GetPoint(i, x, y);
+                         return x;
+                       },
+                       [i](TH1 *h) { return h->GetBinCenter(i + 1); }});
+        auto vals =
+            form_bar | std::views::transform([&](auto ptr) {
+              return my_visit<TGraph, TH1>(
+                  ptr,
+                  overloaded{[&](TH1 *h) { return h->Interpolate(x_value); },
+                             [&](TGraph *h) { return h->Eval(x_value); }});
+            }) |
+            std::ranges::to<std::vector>();
+        auto max = std::ranges::max(vals);
+        auto min = std::ranges::min(vals);
+        auto mean = (max + min) / 2;
+        auto err = (max - min) / 2;
+        grerr->SetPoint(i, x_value, mean);
+        grerr->SetPointError(i, 0, err);
+      }
+      ResetStyle(grerr.get());
+      grerr->GetXaxis()->SetRangeUser(xmin_user, xmax_user);
+      grerr->SetFillColor(kGray);
+      grerr->SetMarkerColor(kGray);
+      grerr->SetLineColor(kGray);
+      grerr->SetTitle("");
+      std::println("Finished drawing error band with {} inputs",
+                   form_bar.size());
+      entries.emplace_front("Error band", std::move(grerr), "AP E3", "f");
+    }
+  }
+
   {
     auto leg =
         config.contains("legend_place")
@@ -264,13 +413,14 @@ int main(int argc, char const *argv[]) {
     if (config.value("logz", false))
       canvas->SetLogz();
     const auto draw_opt = config.value("draw_opt", "hist C");
-    for (std::size_t i = 0; i < entries.size(); ++i) {
-      auto &[legend_title, hist] = entries[i];
-      if (add_median) {
-        auto median_value = median(dynamic_cast<TH1D *>(hist.get()));
+    for (auto &&[i, entry] : entries | std::views::enumerate) {
+      auto &[legend_title, hist, append_opt, leg_opt] = entry;
+      if (auto hist_casted = dynamic_cast<TH1D *>(hist.get());
+          add_median && hist_casted) {
+        auto median_value = median(hist_casted);
         auto median_line =
             std::make_unique<TLine>(median_value, 0, median_value, max);
-        median_line->SetLineColor(hist->GetLineColor());
+        median_line->SetLineColor(hist_casted->GetLineColor());
         median_line->SetLineStyle(2);
         objects.emplace_back(std::move(median_line));
         // legend_title += " median: " + std::to_string(median_value);
@@ -280,24 +430,21 @@ int main(int argc, char const *argv[]) {
            << ")";
         legend_title += ss.str();
       }
-      // hist->SetLineColor(col[i]);
-      // hist->SetLineWidth(2);
-      if (!dynamic_cast<TH2 *>(hist.get()))
-        leg->AddEntry(hist.get(), legend_title.c_str(), leg_opt[i].c_str());
+      leg->AddEntry(hist.get(), legend_title.c_str(), leg_opt.c_str());
       const auto opt = i == 0 ? draw_opt : draw_opt + " same";
-      std::string allopt = opt + append_opt[i];
-      hist->SetMaximum(max);
-      if (ymin_set) {
-        hist->SetMinimum(min_y_value);
-      }
-      // if (!config.value("logy", false))
-      //   hist->SetMinimum(0);
-      // hist->SetMa
+      std::string allopt = opt + append_opt;
+      my_visit<TGraph, TH1>(hist.get(), [&](auto h) {
+        h->SetMaximum(max);
+        if (ymin_set) {
+          h->SetMinimum(min_y_value);
+        }
+      });
       hist->Draw(allopt.c_str());
     }
     for (const auto &object : objects)
       object->Draw("same");
     leg->Draw(config.value("legend_draw_opt", "").c_str());
+
     for (const std::string &output_name : config["output_names"]) {
       if (!std::filesystem::path(output_name).parent_path().empty())
         std::filesystem::create_directories(

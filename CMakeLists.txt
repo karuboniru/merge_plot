@@ -64,3 +64,7 @@ install(TARGETS plot_spline_stack DESTINATION bin)
 add_executable(plot_spline_H plot_spline_H.cxx)
 target_link_libraries(plot_spline_H nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage boost_program_options)
 install(TARGETS plot_spline_H DESTINATION bin)
+
+add_executable(root_minus root_minus.cxx)
+target_link_libraries(root_minus nlohmann_json::nlohmann_json ROOT::Tree ROOT::Hist ROOT::Gpad ROOT::ASImage)
+install(TARGETS root_minus DESTINATION bin)
