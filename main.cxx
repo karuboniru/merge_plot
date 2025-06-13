@@ -78,7 +78,7 @@ int main(int argc, char const *argv[]) {
     }
   }
   using entry_t = std::tuple<std::string, std::unique_ptr<TNamed>, std::string,
-                             std::string>;
+                             std::string, bool>;
 
   std::deque<entry_t> entries{};
   std::vector<std::unique_ptr<TObject>> objects{};
@@ -110,9 +110,9 @@ int main(int argc, char const *argv[]) {
 
     size_t i{};
     for (const auto &entry : config["hists"]) {
-      if (entry.value("skip", false)) {
-        continue;
-      }
+      // if (entry.value("skip", false)) {
+      //   continue;
+      // }
       std::string legend = entry["legend"];
       std::string file_path = entry["file_path"];
       std::string plot_name = entry["hist"];
@@ -190,15 +190,15 @@ int main(int argc, char const *argv[]) {
       if (entry.value("add2bar", false)) {
         form_bar.emplace_back(hist.get());
       }
-      entries.emplace_back(legend, std::move(hist),
-                           entry.value("append_opt", ""),
-                           entry.value("leg_opt", "lpf"));
+      entries.emplace_back(
+          legend, std::move(hist), entry.value("append_opt", ""),
+          entry.value("leg_opt", "lpf"), entry.value("skip", false));
     }
 
     for (const auto &entry : config["graphs"]) {
-      if (entry.value("skip", false)) {
-        continue;
-      }
+      // if (entry.value("skip", false)) {
+      //   continue;
+      // }
       std::string legend = entry["legend"];
       std::string file_path = entry["file_path"];
       std::string plot_name = entry["graph"];
@@ -243,9 +243,9 @@ int main(int argc, char const *argv[]) {
       if (entry.value("add2bar", false)) {
         form_bar.emplace_back(graph.get());
       }
-      entries.emplace_back(legend, std::move(graph),
-                           entry.value("append_opt", ""),
-                           entry.value("leg_opt", "lpf"));
+      entries.emplace_back(
+          legend, std::move(graph), entry.value("append_opt", ""),
+          entry.value("leg_opt", "lpf"), entry.value("skip", false));
       std::cout << "plotting " << plot_name << " from file " << file_path
                 << " scale " << scale << '\n';
     }
@@ -356,8 +356,16 @@ int main(int argc, char const *argv[]) {
                                   [](TH1 *h) { return h->GetNbinsX(); }});
       auto xmax_user = my_visit<TGraph, TH1>(
           form_bar[0], [](auto *g) { return g->GetXaxis()->GetXmax(); });
+      if (config.contains("max_x_value"))
+        xmax_user = config["max_x_value"].get<double>();
       auto xmin_user = my_visit<TGraph, TH1>(
           form_bar[0], [](auto *g) { return g->GetXaxis()->GetXmin(); });
+      if (config.contains("min_x_value"))
+        xmin_user = config["min_x_value"].get<double>();
+      auto x_axis_title = my_visit<TGraph, TH1>(
+          form_bar[0], [](auto *g) { return g->GetXaxis()->GetTitle(); });
+      auto y_axis_title = my_visit<TGraph, TH1>(
+          form_bar[0], [](auto *g) { return g->GetYaxis()->GetTitle(); });
       auto grerr = std::make_unique<TGraphErrors>(npoints);
       for (size_t i = 0; i < npoints; ++i) {
         auto x_value = my_visit<TGraph, TH1>(
@@ -384,6 +392,9 @@ int main(int argc, char const *argv[]) {
         grerr->SetPointError(i, 0, err);
       }
       ResetStyle(grerr.get());
+      grerr->GetXaxis()->SetTitle(x_axis_title);
+      grerr->GetYaxis()->SetTitle(y_axis_title);
+      std::println("range user {} {}", xmin_user, xmax_user);
       grerr->GetXaxis()->SetRangeUser(xmin_user, xmax_user);
       grerr->SetFillColor(kGray);
       grerr->SetMarkerColor(kGray);
@@ -391,7 +402,8 @@ int main(int argc, char const *argv[]) {
       grerr->SetTitle("");
       std::println("Finished drawing error band with {} inputs",
                    form_bar.size());
-      entries.emplace_front("Error band", std::move(grerr), "AP E3", "f");
+      entries.emplace_front(config.value("band_title", "Range"),
+                            std::move(grerr), "AP E3", "f", false);
     }
   }
 
@@ -414,7 +426,9 @@ int main(int argc, char const *argv[]) {
       canvas->SetLogz();
     const auto draw_opt = config.value("draw_opt", "hist C");
     for (auto &&[i, entry] : entries | std::views::enumerate) {
-      auto &[legend_title, hist, append_opt, leg_opt] = entry;
+      auto &[legend_title, hist, append_opt, leg_opt, skip] = entry;
+      if (skip)
+        continue;
       if (auto hist_casted = dynamic_cast<TH1D *>(hist.get());
           add_median && hist_casted) {
         auto median_value = median(hist_casted);
@@ -423,7 +437,6 @@ int main(int argc, char const *argv[]) {
         median_line->SetLineColor(hist_casted->GetLineColor());
         median_line->SetLineStyle(2);
         objects.emplace_back(std::move(median_line));
-        // legend_title += " median: " + std::to_string(median_value);
         std::stringstream ss{};
         ss << "("
            << "m = " << std::fixed << std::setprecision(2) << median_value
