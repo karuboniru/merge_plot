@@ -136,7 +136,8 @@ int main(int argc, char **argv) {
       std::views::transform([capture0 = std::cref(plot_names)](auto &&PH1) {
         return get_spline_nuwro(capture0, std::forward<decltype(PH1)>(PH1));
       }) |
-      std::views::filter([](const TF1 &func) { return func.Eval(100) > 0.; }) |
+      // std::views::filter([](const TF1 &func) { return func.Eval(100) > 0.; })
+      // |
       std::ranges::to<std::vector>();
   auto canvas = std::make_unique<TCanvas>("canvas", "canvas", 1000, 600);
   canvas->cd();
@@ -184,7 +185,7 @@ int main(int argc, char **argv) {
   legend_NuWro->SetHeader("NuWro 21.09.2 LFG");
 
   // const int colors[] = {kRed, kBlue, kBlue, kRed, kMagenta};
-  const int colors[] = {kRed, kRed, kOrange, kOrange};
+  const int colors[] = {kRed, kBlue, kBlack, kMagenta};
   const int style[] = {kSolid, kDashed, kSolid, kDashed};
   const int width[] = {3, 3, 2, 2};
   // auto max_val1 =
@@ -209,7 +210,7 @@ int main(int argc, char **argv) {
     // spline.GetXaxis()->SetTitle("E_{#nu} (GeV)");
     spline.GetYaxis()->SetTitle(
         "#sigma / #it{E}_{#nu} (10^{#minus 38} cm^{2}/GeV/nucleon)");
-    spline.SetLineStyle(style[id]);
+    spline.SetLineStyle(kSolid);
     spline.SetLineColor(colors[id]);
     spline.SetLineWidth(width[id]);
     spline.GetYaxis()->SetTitleOffset(titleoffset);
@@ -235,7 +236,7 @@ int main(int argc, char **argv) {
       // spline.GetXaxis()->SetTitle("E_{#nu} (GeV)");
       spline.GetYaxis()->SetTitle(
           "#sigma / #it{E}_{#nu} (10^{#minus 38} cm^{2}/GeV/nucleon)");
-      spline.SetLineStyle(style[id]);
+      spline.SetLineStyle(kDashed);
       spline.SetLineColor(colors[id]);
       spline.SetLineWidth(style[id] == kDashed ? 3 : 2);
       spline.GetXaxis()->SetLabelSize(textsize);
@@ -257,38 +258,36 @@ int main(int argc, char **argv) {
   pad2->cd();
   pad2->SetGrid(1, 1);
   pad2->SetLogx();
-  auto &&base_func = splines[0];
-  auto spline2ratio = std::views::transform([&](const TF1 &func_in) {
-                        return TF1{"",
-                                   [&](const double *x, const double *) {
-                                     auto a = func_in.Eval(x[0]);
-                                     //  a = a < 0 ? 0 : a;
-                                     auto b = base_func.Eval(x[0]);
-                                     //  b = b < 0 ? 0 : b;
-                                     if (a == b) {
-                                       return 1.;
-                                     }
-                                     if (std::abs(b) < 1e-5) {
-                                       return 0.;
-                                     }
-                                     return a / b;
-                                   },
-                                   min, max, 0};
-                      }) |
-                      std::ranges::to<std::vector>();
-  auto spline_ratio = splines | spline2ratio;
-  auto spline_nuwro_ratio = splines_nuwro | spline2ratio;
+  pad2->SetLogy();
+  auto ratios = std::views::zip(splines, splines_nuwro) |
+                std::views::transform([](const auto &&tuple) {
+                  auto &&[spline, spline_nuwro] = tuple;
+                  return TF1{"",
+                             [&](const double *x, const double *) {
+                               auto a = spline.Eval(x[0]);
+                               //  a = a < 0 ? 0 : a;
+                               auto b = spline_nuwro.Eval(x[0]);
+                               //  b = b < 0 ? 0 : b;
+                               if (a <= 0 || b <= 1e-5) {
+                                 return 1.;
+                               }
+                               if (a == b) {
+                                 return 1.;
+                               }
+                               return a / b;
+                             },
+                             min, max, 0};
+                }) |
+                std::ranges::to<std::vector>();
 
-  for (auto &&[id, spline] : std::views::enumerate(spline_ratio)) {
-    spline.SetMaximum(1.2);
-    spline.SetMinimum(-0.1);
+  for (int readlid{}; auto &&[id, spline] : std::views::enumerate(ratios)) {
+    spline.SetMaximum(2.10);
+    spline.SetMinimum(0.5);
     ResetStyle(&spline);
     spline.SetTitle(out_title.c_str());
     spline.GetXaxis()->SetTitle("#it{E}_{#nu} (GeV)");
-    spline.GetYaxis()->SetTitle(
-        ("Ratio to  " + name_normalize(std::string{splines[0].GetName()}))
-            .c_str());
-    spline.SetLineStyle(style[id]);
+    spline.GetYaxis()->SetTitle("GENIE/NuWro");
+    spline.SetLineStyle(kSolid);
     spline.SetLineColor(colors[id]);
     spline.SetLineWidth(style[id] == kDashed ? 3 : 2);
     spline.GetXaxis()->SetLabelSize(textsize * fair_share / (1 - fair_share));
@@ -298,32 +297,10 @@ int main(int argc, char **argv) {
     spline.GetYaxis()->SetTitleSize(textsize * fair_share / (1 - fair_share));
     spline.GetYaxis()->SetTitleOffset(titleoffset /
                                       (fair_share / (1 - fair_share)));
-    spline.Draw(id ? "same" : "");
-  }
 
-  if (!splines_nuwro.empty()) {
-    const int colors[] = {kGray, kGray, kBlack, kBlack};
-    for (auto &&[id, spline] : std::views::enumerate(spline_nuwro_ratio)) {
-      spline.SetMaximum(1.2);
-      spline.SetMinimum(-0.1);
-      ResetStyle(&spline);
-      spline.SetTitle(out_title.c_str());
-      spline.GetXaxis()->SetTitle("#it{E}_{#nu} (GeV)");
-      spline.GetYaxis()->SetTitle(
-          ("Ratio to " + name_normalize(std::string{splines[0].GetName()}))
-              .c_str());
-      spline.SetLineStyle(style[id]);
-      spline.SetLineColor(colors[id]);
-      spline.SetLineWidth(style[id] == kDashed ? 3 : 2);
-      spline.GetXaxis()->SetLabelSize(textsize * fair_share / (1 - fair_share));
-      spline.GetXaxis()->SetTitleSize(textsize * fair_share / (1 - fair_share));
-
-      spline.GetYaxis()->SetLabelSize(textsize * fair_share / (1 - fair_share));
-      spline.GetYaxis()->SetTitleSize(textsize * fair_share / (1 - fair_share));
-      spline.GetYaxis()->SetTitleOffset(titleoffset /
-                                        (fair_share / (1 - fair_share)));
-      spline.Draw("same");
-    }
+    spline.GetXaxis()->SetNdivisions(510);
+    if (spline.Eval(10) != 0)
+      spline.Draw(readlid++ ? "same" : "");
   }
 
   canvas->cd();
