@@ -32,46 +32,55 @@ int main(int argc, char const *argv[]) {
   while ((obj = next())) {
     auto name = std::string{obj->GetName()};
 
-    if (name.substr(0, 2) == "2d") {
-      auto hist = dynamic_cast<TH2 *>(file->Get(name.c_str()));
-      clear_overflow(*hist);
-      if (hist->Integral() < 1) {
-        std::cout << "found empty one " << name << " int " << hist->Integral()
-                  << std::endl;
-        continue;
-      }
-      std::cout << name << std::endl;
+    auto hist = dynamic_cast<TH2 *>(file->Get(name.c_str()));
+    if (!hist) {
+      std::cout << "not TH2 " << name << std::endl;
+      continue;
+    }
+    clear_overflow(*hist);
+    if (hist->Integral() < 1) {
+      std::cout << "found empty one " << name << " int " << hist->Integral()
+                << std::endl;
+      continue;
+    }
+    std::cout << name << std::endl;
 
-      ResetStyle(hist);
-      // hist->GetXaxis()->SetRangeUser(0., 1.2);
-      // hist->GetYaxis()->SetRangeUser(0., 1.2);
-      {
-        auto canvas = getCanvas();
-        hist->Draw("colz");
-        canvas->SaveAs((name + ".png").c_str());
-        canvas->SaveAs((name + ".pdf").c_str());
-      }
-      {
-        auto canvas = getCanvas();
-        canvas->SetLogz();
-        hist->Draw("colz");
-        canvas->SaveAs((name + ".logz.png").c_str());
-        canvas->SaveAs((name + ".logz.pdf").c_str());
-      }
-      {
-        auto canvas = getCanvas();
-        auto hist_normalized = normalize_slice(hist, true);
-        hist_normalized->Draw("colz");
-        canvas->SaveAs((name + "_normalizedx.png").c_str());
-        canvas->SaveAs((name + "_normalizedx.pdf").c_str());
-      }
-      {
-        auto canvas = getCanvas();
-        auto hist_normalized = normalize_slice(hist, false);
-        hist_normalized->Draw("colz");
-        canvas->SaveAs((name + "_normalizedy.png").c_str());
-        canvas->SaveAs((name + "_normalizedy.pdf").c_str());
-      }
+    ResetStyle(hist);
+    hist->GetYaxis()->SetTitleOffset(0.8);
+    // hist->GetXaxis()->SetRangeUser(0., 1.2);
+    // hist->GetYaxis()->SetRangeUser(0., 1.2);
+    auto mcanvas = []() {
+      auto canvas = getCanvas();
+      canvas->SetRightMargin(3.0 * canvas->GetRightMargin());
+      canvas->SetLeftMargin(0.8 * canvas->GetLeftMargin());
+      return canvas;
+    };
+    {
+      auto canvas = mcanvas();
+      hist->Draw("colz");
+      canvas->SaveAs((name + ".eps").c_str());
+      canvas->SaveAs((name + ".pdf").c_str());
+    }
+    {
+      auto canvas = mcanvas();
+      canvas->SetLogz();
+      hist->Draw("colz");
+      canvas->SaveAs((name + ".logz.eps").c_str());
+      canvas->SaveAs((name + ".logz.pdf").c_str());
+    }
+    {
+      auto canvas = mcanvas();
+      auto hist_normalized = normalize_slice(hist, true);
+      hist_normalized->Draw("colz");
+      canvas->SaveAs((name + "_normalizedx.eps").c_str());
+      canvas->SaveAs((name + "_normalizedx.pdf").c_str());
+    }
+    {
+      auto canvas = mcanvas();
+      auto hist_normalized = normalize_slice(hist, false);
+      hist_normalized->Draw("colz");
+      canvas->SaveAs((name + "_normalizedy.eps").c_str());
+      canvas->SaveAs((name + "_normalizedy.pdf").c_str());
     }
   }
 }

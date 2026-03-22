@@ -1,6 +1,7 @@
 #include <TArrow.h>
 #include <TCanvas.h>
 #include <TFile.h>
+#include <TGraphAsymmErrors.h>
 #include <TGraphErrors.h>
 #include <TH1.h>
 #include <TLegend.h>
@@ -24,7 +25,7 @@
 #include <unordered_map>
 
 double median(TH1D *hist) {
-  double x, q;
+  double x{}, q{};
   q = 0.5;                 // 0.5 for "median"
   hist->ComputeIntegral(); // just a precaution
   hist->GetQuantiles(1, &x, &q);
@@ -58,8 +59,32 @@ void overE(TH1 *hist) {
 }
 
 void overE(TGraph *graph) {
+  if (auto graph_asym = dynamic_cast<TGraphAsymmErrors *>(graph)) {
+    for (int i = 0; i < graph_asym->GetN(); ++i) {
+      double x{}, y{}, exl{}, exh{}, eyl{}, eyh{};
+      graph_asym->GetPoint(i, x, y);
+      exl = graph_asym->GetErrorXlow(i);
+      exh = graph_asym->GetErrorXhigh(i);
+      eyl = graph_asym->GetErrorYlow(i);
+      eyh = graph_asym->GetErrorYhigh(i);
+      graph_asym->SetPoint(i, x, y / x);
+      graph_asym->SetPointError(i, exl, exh, eyl / x, eyh / x);
+    }
+    return;
+  }
+  if (auto graph_err = dynamic_cast<TGraphErrors *>(graph)) {
+    for (int i = 0; i < graph_err->GetN(); ++i) {
+      double x{}, y{}, ex{}, ey{};
+      graph_err->GetPoint(i, x, y);
+      ex = graph_err->GetErrorX(i);
+      ey = graph_err->GetErrorY(i);
+      graph_err->SetPoint(i, x, y / x);
+      graph_err->SetPointError(i, ex / x, ey / x);
+    }
+    return;
+  }
   for (int i = 0; i < graph->GetN(); ++i) {
-    double x, y;
+    double x{}, y{};
     graph->GetPoint(i, x, y);
     graph->SetPoint(i, x, y / x);
   }
@@ -73,7 +98,7 @@ int main(int argc, char const *argv[]) {
     gSystem->ResetSignal(kSigIllegalInstruction);
     TH1::AddDirectory(kFALSE);
     if (argc != 2) {
-      std::cout << "Usage: merge_plot <config_file>" << std::endl;
+      std::cout << "Usage: merge_plot <config_file>" << '\n';
       return 1;
     }
   }
@@ -81,7 +106,7 @@ int main(int argc, char const *argv[]) {
                              std::string, bool>;
 
   std::deque<entry_t> entries{};
-  std::vector<std::unique_ptr<TObject>> objects{};
+  std::vector<std::pair<std::unique_ptr<TObject>, std::string>> objects{};
   // std::vector<std::string> append_opt{}, leg_opt{};
   nlohmann::json config;
   constexpr std::array<int, 10> col{kRed,   kBlue, kViolet, kYellow, kOrange,
@@ -90,7 +115,7 @@ int main(int argc, char const *argv[]) {
   {
     std::ifstream config_file{argv[1]};
     if (!config_file.is_open()) {
-      std::cout << "Error: Could not open config file" << std::endl;
+      std::cout << "Error: Could not open config file" << '\n';
       return 1;
     }
     config_file >> config;
@@ -103,13 +128,19 @@ int main(int argc, char const *argv[]) {
   bool last_bin_as_overflow = config.value("last_bin_as_overflow", false);
   bool add_median = config.value("add_median", false);
   bool overE_flag = config.value("overE", false);
+  double left_margin_scale = config.value("left_margin_scale", 1.0);
+  double y_axis_title_offset_scale =
+      config.value("y_axis_title_offset_scale", 1.);
+  bool scale_to_first = config.value("scale_to_first", false);
+  double first_integral = 1.0;
+  auto shape_global = config.value("shape", false);
   std::vector<TNamed *> form_bar{};
   double uplimit{-INFINITY};
   {
     auto plot_title = config["plot_title"].get<std::string>();
 
     size_t i{};
-    for (const auto &entry : config["hists"]) {
+    for (const auto &[id, entry] : config["hists"] | std::views::enumerate) {
       // if (entry.value("skip", false)) {
       //   continue;
       // }
@@ -120,23 +151,31 @@ int main(int argc, char const *argv[]) {
       auto rebin_factor = entry.value<size_t>("rebin", 1);
       TFile file{file_path.c_str(), "READ"};
       if (!file.IsOpen()) {
-        std::cout << "Error: Could not open file " << file_path << std::endl;
+        std::cout << "Error: Could not open file " << file_path << '\n';
         return 1;
       }
       std::unique_ptr<TH1> hist{
           dynamic_cast<TH1 *>(file.Get(plot_name.c_str()))};
       if (!hist) {
         std::cout << "Error: Could not get histogram " << plot_name
-                  << " from file " << file_path << std::endl;
+                  << " from file " << file_path << '\n';
         return 1;
       }
-      if (overE_flag) {
+      if (entry.value("overE", overE_flag)) {
         overE(hist.get());
       }
+      if (scale_to_first) {
+        if (id == 0) {
+          first_integral = hist->Integral();
+        }
+        // scale /= first_integral;
+        hist->Scale(1 / first_integral, "WIDTH");
+      }
+      // if (scale_to_first )
       hist->Scale(scale / rebin_factor);
       if (rebin_factor != 1)
         hist->Rebin(rebin_factor);
-      if (entry.value("shape", false)) {
+      if (entry.value("shape", shape_global)) {
         hist->Scale(1. / hist->Integral());
       }
       if (entry.value("cdf", false)) {
@@ -151,13 +190,14 @@ int main(int argc, char const *argv[]) {
         hist_2dptr->SetAxisRange(config["rangex"][0], config["rangex"][1], "X");
         hist_2dptr->SetAxisRange(config["rangey"][0], config["rangey"][1], "Y");
         if (entry.value("normalize", -1) != -1) {
-          hist = normalize_slice(hist_2dptr, entry["normalize"].get<int>());
+          hist =
+              normalize_slice(hist_2dptr, entry["normalize"].get<int>() != 0);
         }
       } else {
         if (last_bin_as_overflow) {
-          std::cout << "last bin as overflow" << std::endl
+          std::cout << "last bin as overflow" << '\n'
                     << "before \t" << hist->GetBinContent(hist->GetNbinsX())
-                    << std::endl;
+                    << '\n';
           hist->SetBinContent(hist->GetNbinsX(),
                               hist->GetBinContent(hist->GetNbinsX()) +
                                   hist->GetBinContent(hist->GetNbinsX() + 1));
@@ -172,14 +212,14 @@ int main(int argc, char const *argv[]) {
         }
       }
       std::cout << "plotting " << plot_name << " from file " << file_path
-                << " scale " << scale << " rebin with " << rebin_factor
-                << std::endl;
+                << " scale " << scale << " rebin with " << rebin_factor << '\n';
       if (!config.contains("max_y_value"))
         max = std::max(max, hist->GetMaximum());
       ResetStyle(hist);
       hist->SetLineStyle(entry.value("line_style", kSolid));
       hist->SetLineWidth(entry.value("line_width", 2));
       hist->SetMarkerStyle(entry.value("marker_style", hist->GetMarkerStyle()));
+      hist->SetMarkerSize(entry.value("marker_size", hist->GetMarkerSize()));
       auto color = entry.value("line_color", -1);
       if (color != -1)
         hist->SetLineColor(color);
@@ -215,7 +255,7 @@ int main(int argc, char const *argv[]) {
                   << file_path << '\n';
         return 1;
       }
-      if (overE_flag) {
+      if (entry.value("overE", overE_flag)) {
         overE(graph.get());
       }
       if (config.contains("max_x_value"))
@@ -238,7 +278,11 @@ int main(int argc, char const *argv[]) {
         graph->SetLineColor(color);
       else
         graph->SetLineColor(col[i++]);
-      graph->SetMarkerColor(graph->GetLineColor());
+      // graph->SetMarkerColor(graph->GetLineColor());
+      graph->SetMarkerColor(entry.value("marker_color", graph->GetLineColor()));
+      graph->SetMarkerStyle(
+          entry.value("marker_style", graph->GetMarkerStyle()));
+      graph->SetMarkerSize(entry.value("marker_size", graph->GetMarkerSize()));
       graph->SetTitle(plot_title.c_str());
       if (entry.value("add2bar", false)) {
         form_bar.emplace_back(graph.get());
@@ -344,7 +388,10 @@ int main(int argc, char const *argv[]) {
                }}};
 
       for (const auto &entry : config["misc"]) {
-        objects.emplace_back(misc_objects_maker.at(entry["type"])(entry));
+        auto title = entry.value("legend", "");
+        objects.emplace_back(
+            misc_objects_maker.at(entry["type"].get<std::string>())(entry),
+            title);
       }
     }
   }
@@ -371,7 +418,7 @@ int main(int argc, char const *argv[]) {
         auto x_value = my_visit<TGraph, TH1>(
             form_bar[0],
             overloaded{[i](TGraph *g) {
-                         double x, y;
+                         double x{}, y{};
                          g->GetPoint(i, x, y);
                          return x;
                        },
@@ -420,11 +467,13 @@ int main(int argc, char const *argv[]) {
     auto cx = config.value("canvas_x", 600);
     auto cy = config.value("canvas_y", 400);
     auto canvas = getCanvas("", cx, cy);
+    canvas->SetLeftMargin(left_margin_scale * canvas->GetLeftMargin());
     if (config.value("logy", false))
       canvas->SetLogy();
     if (config.value("logz", false))
       canvas->SetLogz();
     const auto draw_opt = config.value("draw_opt", "hist C");
+
     for (auto &&[i, entry] : entries | std::views::enumerate) {
       auto &[legend_title, hist, append_opt, leg_opt, skip] = entry;
       if (skip)
@@ -436,29 +485,43 @@ int main(int argc, char const *argv[]) {
             std::make_unique<TLine>(median_value, 0, median_value, max);
         median_line->SetLineColor(hist_casted->GetLineColor());
         median_line->SetLineStyle(2);
-        objects.emplace_back(std::move(median_line));
+        objects.emplace_back(std::move(median_line), "");
         std::stringstream ss{};
         ss << "("
            << "m = " << std::fixed << std::setprecision(2) << median_value
            << ")";
         legend_title += ss.str();
       }
-      leg->AddEntry(hist.get(), legend_title.c_str(), leg_opt.c_str());
-      const auto opt = i == 0 ? draw_opt : draw_opt + " same";
+      const auto opt = draw_opt + " same";
       std::string allopt = opt + append_opt;
       my_visit<TGraph, TH1>(hist.get(), [&](auto h) {
         h->SetMaximum(max);
         if (ymin_set) {
           h->SetMinimum(min_y_value);
         }
+        h->GetYaxis()->SetTitleOffset(y_axis_title_offset_scale *
+                                      h->GetYaxis()->GetTitleOffset());
       });
-      hist->Draw(allopt.c_str());
+      if (i == 0) {
+        hist->Draw(draw_opt.c_str());
+        for (const auto &[plottable, name] : objects) {
+          // object.first->Draw("same");
+          plottable->Draw("same");
+          if (!name.empty()) {
+            leg->AddEntry(plottable.get(), name.c_str(), "l");
+          }
+        }
+      }
+      if (!legend_title.empty())
+        leg->AddEntry(hist.get(), legend_title.c_str(), leg_opt.c_str());
+
+      hist->Draw(opt.c_str());
     }
-    for (const auto &object : objects)
-      object->Draw("same");
+
+    leg->SetTextSize(config.value("legend_text_size", leg->GetTextSize()));
     leg->Draw(config.value("legend_draw_opt", "").c_str());
 
-    for (const std::string &output_name : config["output_names"]) {
+    for (const std::string output_name : config["output_names"]) {
       if (!std::filesystem::path(output_name).parent_path().empty())
         std::filesystem::create_directories(
             std::filesystem::path(output_name).parent_path());

@@ -2,9 +2,9 @@
 #include <TCanvas.h>
 #include <TFile.h>
 #include <TH1.h>
+#include <THStack.h>
 #include <TLegend.h>
 #include <TMarker.h>
-#include <THStack.h>
 #include <TStyle.h>
 #include <TSystem.h>
 #include <TText.h>
@@ -209,7 +209,8 @@ int main(int argc, char const *argv[]) {
     if (config.value("logz", false))
       canvas->SetLogz();
     const auto draw_opt = config.value("draw_opt", "hist C");
-    auto stack = std::make_unique<THStack>("stack", config.value("plot_title", "").c_str());
+    auto stack = std::make_unique<THStack>(
+        "stack", config.value("plot_title", "").c_str());
     for (std::size_t i = 0; i < entries.size(); ++i) {
       auto &[legend_title, hist] = entries[i];
       // hist->SetLineColor(col[i]);
@@ -225,11 +226,11 @@ int main(int argc, char const *argv[]) {
       stack->Add(hist.get());
     }
     stack->Draw(draw_opt.c_str());
-    
+
     for (const auto &object : objects)
       object->Draw("same");
     leg->Draw();
-    for (const std::string &output_name : config["output_names"]) {
+    for (const std::string output_name : config["output_names"]) {
       if (!std::filesystem::path(output_name).parent_path().empty())
         std::filesystem::create_directories(
             std::filesystem::path(output_name).parent_path());

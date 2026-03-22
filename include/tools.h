@@ -11,6 +11,7 @@
 #include <TROOT.h>
 #include <TStyle.h>
 #include <iostream>
+#include <cmath>
 #include <string>
 
 template <typename PtrType, typename Base>
