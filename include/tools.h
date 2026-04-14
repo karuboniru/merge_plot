@@ -282,3 +282,44 @@ auto normalize_slice(T &&hist, bool on_axis_x = true) {
   }
   return std::unique_ptr<HistType>(hist_norm);
 }
+
+TLatex* DrawXminLabel(TAxis* axis, const char* fmt = "%.1f") {
+    // 安全检查
+    if (!axis || !gPad) return nullptr;
+
+    // 必须调用 Update，确保 Pad 的坐标系已根据最新的 RangeUser 更新
+    gPad->Update(); 
+
+    // ==========================================
+    // 【核心修改区】兼容 User Range (usermin)
+    // 1. 获取当前显示视窗内的第一个 Bin 的索引
+    int first_bin = axis->GetFirst();
+    // 2. 获取这个 Bin 的实际左边缘坐标 (即真实的 usermin)
+    // 注意：哪怕没有用 SetRangeUser，GetFirst() 默认返回 1，
+    // GetBinLowEdge(1) 依然等同于 GetXmin()，所以这是绝对向下兼容的完美写法。
+    double x_min = axis->GetBinLowEdge(first_bin);
+    // ==========================================
+
+    // 格式化文本
+    TString text = Form(fmt, x_min);
+
+    // 获取当前绘图区域的 Y 轴范围
+    double y_min = gPad->GetUymin();
+    double y_max = gPad->GetUymax();
+    double y_range = y_max - y_min;
+
+    // 计算 Y 轴位置
+    double tick_len = axis->GetTickLength();
+    double lbl_offset = axis->GetLabelOffset();
+    double y_pos = y_min - y_range * (tick_len + lbl_offset - 0.005); 
+
+    // 创建并设置 TLatex
+    TLatex* latex = new TLatex(x_min, y_pos, text.Data());
+    latex->SetTextFont(axis->GetLabelFont());
+    latex->SetTextSize(axis->GetLabelSize());
+    latex->SetTextColor(axis->GetLabelColor());
+    latex->SetTextAlign(23); // 水平居中，垂直顶部对齐
+    latex->Draw();
+    
+    return latex;
+}

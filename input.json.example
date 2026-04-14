@@ -1,46 +1,165 @@
 {
     "plot_title": "Proton Momentum; Proton Momentum (GeV/ #it{c}); d#it{#sigma}/d#it{P} (cm^{2} GeV^{ -1} #it{c})",
+
     "max_x_value": 1.0,
+    "min_x_value": 0.0,
+    "max_y_value": 0.0,
+    "min_y_value": 0.0,
+    "max": 0.0,
+
+    "overE": false,
+    "shape": false,
+    "scale_to_first": false,
+    "last_bin_as_overflow": false,
+    "add_median": false,
+
+    "logy": false,
+    "logz": false,
+    "draw_opt": "hist C",
+    "canvas_x": 600,
+    "canvas_y": 400,
+    "left_margin_scale": 1.0,
+    "y_axis_title_offset_scale": 1.0,
+
     "output_names": ["proton_momentum.eps", "proton_momentum.png", "proton_momentum.pdf"],
+
+    "legend_place": { "x1": 0.50, "y1": 0.65, "x2": 0.85, "y2": 0.9 },
+    "legend_header": "",
+    "legend_columns": 1,
+    "legend_text_size": 0.04,
+    "legend_draw_opt": "",
+
+    "band_title": "Range",
+
     "hists": [
         {
             "legend": "NuWro 21.09",
-            "file_path": "/home/yan/neutrino/nuwro_data/honda_flux_20/plots/protonP.root",
-            "hist": "ALL",
-            "rebin": 2
+            "file_path": "/path/to/file.root",
+            "hist": "histogram_name",
+            "scale": 1.0,
+            "rebin": 2,
+            "overE": false,
+            "shape": false,
+            "cdf": false,
+            "normalize": -1,
+            "line_style": 1,
+            "line_width": 2,
+            "line_color": -1,
+            "marker_style": -1,
+            "marker_size": -1.0,
+            "append_opt": "",
+            "leg_opt": "lpf",
+            "skip": false,
+            "add2bar": false
         },
         {
-            "legend": "GiBUU 2021, patch 1",
-            "file_path": "/media/storage/plots/plot/proton_momentum.root",
-            "hist": "All",
+            "legend": "GiBUU 2021",
+            "file_path": "/path/to/file2.root",
+            "hist": "histogram_name",
             "scale": 1.0,
-            "rebin": 4
-        },
-        {
-            "legend": "GENIE 3.0.6 hN",
-            "file_path": "/media/storage/plots/Atm_CC_C12_genie3.0.6hN_anahist.root",
-            "hist": "proton_momentum_cc_numu",
-            "scale": 1.0,
-            "rebin": 4
+            "rebin": 4,
+            "overE": false,
+            "shape": false,
+            "cdf": false,
+            "normalize": -1,
+            "line_style": 2,
+            "line_width": 2,
+            "line_color": -1,
+            "marker_style": -1,
+            "marker_size": -1.0,
+            "append_opt": "",
+            "leg_opt": "lpf",
+            "skip": false,
+            "add2bar": false
         }
     ],
+
+    "graphs": [
+        {
+            "legend": "Data",
+            "file_path": "/path/to/data.root",
+            "graph": "graph_name",
+            "scale": 1.0,
+            "overE": false,
+            "line_style": 1,
+            "line_width": 2,
+            "line_color": -1,
+            "marker_color": -1,
+            "marker_style": -1,
+            "marker_size": -1.0,
+            "append_opt": "",
+            "leg_opt": "lpf",
+            "skip": false,
+            "add2bar": false
+        }
+    ],
+
     "misc": [
         {
+            "type": "TLine",
+            "legend": "",
+            "x1": 0.2, "y1": 0.0, "x2": 0.2, "y2": 1.0,
+            "color": 1,
+            "width": 1,
+            "style": 2
+        },
+        {
             "type": "VLine",
+            "legend": "",
             "x": 0.5,
-            "color": 880
+            "color": 880,
+            "width": 1,
+            "style": 2
+        },
+        {
+            "type": "HLine",
+            "legend": "",
+            "y": 1.0,
+            "color": 1,
+            "width": 1,
+            "style": 2
+        },
+        {
+            "type": "TMarker",
+            "legend": "",
+            "x": 0.5, "y": 0.5,
+            "marker": 20,
+            "color": 1,
+            "size": 1.0,
+            "ndc": true
         },
         {
             "type": "TText",
-            "x": 0.35,
-            "y": 0.5,
-            "text": "lack of constrain"
+            "legend": "",
+            "x": 0.35, "y": 0.5,
+            "text": "label",
+            "size": 0.05,
+            "color": 1,
+            "font": 42,
+            "align": 22,
+            "ndc": true
+        },
+        {
+            "type": "TLatex",
+            "legend": "",
+            "x": 0.35, "y": 0.4,
+            "text": "#it{label with latex}",
+            "size": 0.05,
+            "color": 1,
+            "font": 42,
+            "align": 22,
+            "ndc": true
+        },
+        {
+            "type": "TArrow",
+            "legend": "",
+            "x1": 0.3, "y1": 0.5, "x2": 0.5, "y2": 0.5,
+            "arrowsize": 0.1,
+            "arrowstyle": ">",
+            "color": 1,
+            "width": 1,
+            "style": 1,
+            "ndc": true
         }
-    ],
-    "legend_place": {
-        "x1": 0.50,
-        "y1": 0.65,
-        "x2": 0.85,
-        "y2": 0.9
-    }
+    ]
 }
