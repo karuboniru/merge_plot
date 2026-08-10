@@ -37,6 +37,7 @@ int main(int argc, char const *argv[]) {
   constexpr std::array<int, 10> col{kRed,   kBlue, kViolet, kYellow, kOrange,
                                     kGreen, kGray, kTeal,   kPink};
 
+  double uplimit{-INFINITY};
   {
     std::ifstream config_file{argv[1]};
     if (!config_file.is_open()) {
@@ -47,7 +48,6 @@ int main(int argc, char const *argv[]) {
   }
   {
     auto plot_title = config["plot_title"].get<std::string>();
-    double uplimit{-INFINITY};
 
     size_t i{};
     for (const auto &entry : config["hists"]) {
@@ -226,6 +226,9 @@ int main(int argc, char const *argv[]) {
       stack->Add(hist.get());
     }
     stack->Draw(draw_opt.c_str());
+    stack->GetXaxis()->SetRangeUser(entries[0].second->GetBinLowEdge(1), uplimit);
+    stack->Draw(draw_opt.c_str());
+
 
     for (const auto &object : objects)
       object->Draw("same");

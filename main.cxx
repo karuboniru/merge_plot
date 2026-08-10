@@ -595,7 +595,7 @@ int main(int argc, char const *argv[]) {
                                       h->GetYaxis()->GetTitleOffset());
       });
       if (idx == 0) {
-        hist->Draw(cfg.draw_opt.c_str());
+        hist->Draw(allopt.c_str());
         for (const auto &[plottable, name] : objects) {
           plottable->Draw("same");
           if (!name.empty())
