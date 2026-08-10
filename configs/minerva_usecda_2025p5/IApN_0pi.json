@@ -1,0 +1,52 @@
+{
+    "plot_title": "MINERvA CC0#pi;#it{p}_{N} (GeV/#it{c});d#sigma/d#it{p}_{N} (10^{#minus 38} cm^{2}/GeV/#it{c}/nucleon)",
+    "min_x_value": 0.0,
+    "max_x_value": 2.0,
+    "min_y_value": 0.0,
+    "max_y_value": 0.65,
+    "draw_opt": "",
+    "canvas_x": 720,
+    "canvas_y": 520,
+    "left_margin_scale": 1.25,
+    "y_axis_title_offset_scale": 1.15,
+    "output_names": [
+        "/sps/juno/yqiyu/GiBUUGEN/minerva_useCdA_2025p5/minerva_usecda_2025p5/comparison/merge_plot/IApN_0pi_useCdA.png",
+        "/sps/juno/yqiyu/GiBUUGEN/minerva_useCdA_2025p5/minerva_usecda_2025p5/comparison/merge_plot/IApN_0pi_useCdA.pdf",
+        "/sps/juno/yqiyu/GiBUUGEN/minerva_useCdA_2025p5/minerva_usecda_2025p5/comparison/merge_plot/IApN_0pi_useCdA.svg"
+    ],
+    "legend_place": { "x1": 0.37, "y1": 0.68, "x2": 0.91, "y2": 0.89 },
+    "legend_text_size": 0.032,
+    "hists": [
+        {
+            "legend": "MINERvA data",
+            "file_path": "/sps/juno/yqiyu/GiBUUGEN/minerva_useCdA_2025p5/minerva_usecda_2025p5/production/T1_T2p2h1_msF_imoff_2piT_Adep2_fsiT/use_cda_F/analysis/dtl_all.root",
+            "hist": "data_IApN_0pi",
+            "line_color": 1,
+            "line_width": 1,
+            "marker_style": 20,
+            "marker_size": 1.0,
+            "append_opt": " E1 X0",
+            "leg_opt": "ep"
+        },
+        {
+            "legend": "GiBUU 2025p5, useCdA=F (#chi^{2}/NDF=64.89/24)",
+            "file_path": "/sps/juno/yqiyu/GiBUUGEN/minerva_useCdA_2025p5/minerva_usecda_2025p5/production/T1_T2p2h1_msF_imoff_2piT_Adep2_fsiT/use_cda_F/analysis/dtl_all.root",
+            "hist": "IApN_0pi",
+            "line_color": 600,
+            "line_style": 1,
+            "line_width": 3,
+            "append_opt": " HIST C",
+            "leg_opt": "l"
+        },
+        {
+            "legend": "GiBUU 2025p5, useCdA=T (#chi^{2}/NDF=42.98/24)",
+            "file_path": "/sps/juno/yqiyu/GiBUUGEN/minerva_useCdA_2025p5/minerva_usecda_2025p5/production/T1_T2p2h1_msF_imoff_2piT_Adep2_fsiT/use_cda_T/analysis/dtl_all.root",
+            "hist": "IApN_0pi",
+            "line_color": 632,
+            "line_style": 2,
+            "line_width": 3,
+            "append_opt": " HIST C",
+            "leg_opt": "l"
+        }
+    ]
+}
