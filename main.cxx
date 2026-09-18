@@ -10,6 +10,7 @@
 #include <TSystem.h>
 #include <TText.h>
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <deque>
 #include <filesystem>
@@ -371,8 +372,37 @@ int main(int argc, char const *argv[]) {
     hist->Scale(hcfg.scale / hcfg.rebin);
     if (hcfg.rebin != 1)
       hist->Rebin(hcfg.rebin);
-    if (hcfg.shape.value_or(cfg.shape))
-      hist->Scale(1. / hist->Integral());
+    if (hcfg.shape.value_or(cfg.shape)) {
+      auto *axis = hist->GetXaxis();
+      const int first = axis->GetFirst();
+      const int last = axis->GetLast();
+      const bool had_range = axis->TestBit(TAxis::kAxisRange);
+      auto xmin = cfg.min_x_value;
+      auto xmax = cfg.max_x_value;
+      if (dynamic_cast<TH2 *>(hist.get())) {
+        xmin = cfg.rangex ? std::optional{(*cfg.rangex)[0]} : std::nullopt;
+        xmax = cfg.rangex ? std::optional{(*cfg.rangex)[1]} : std::nullopt;
+      }
+      if (xmin || xmax) {
+        const double low = std::max(xmin.value_or(axis->GetXmin()), axis->GetXmin());
+        const double high = std::min(xmax.value_or(axis->GetXmax()), axis->GetXmax());
+        if (!(low < high)) {
+          std::cerr << "Error: empty x range for shape normalization of "
+                    << hcfg.hist << '\n';
+          return 1;
+        }
+        // Use the same whole-bin selection as the displayed axis range.
+        axis->SetRangeUser(low, high);
+      }
+      const double integral = hist->Integral("width");
+      axis->SetRange(had_range ? first : 0, had_range ? last : 0);
+      if (!std::isfinite(integral) || integral == 0.) {
+        std::cerr << "Error: invalid integral for shape normalization of "
+                  << hcfg.hist << '\n';
+        return 1;
+      }
+      hist->Scale(1. / integral);
+    }
     if (hcfg.cdf)
       hist.reset(hist->GetCumulative());
 
